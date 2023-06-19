@@ -1,0 +1,20 @@
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ item }}
+  namespace: {{ namespace }}
+spec:
+{% if item == 'ms-eureka' %}
+  clusterIP: None
+{% endif %}
+  type: ClusterIP
+  selector:
+    app: {{ item }}
+    env:  {{env}}
+  ports:
+  - port: {{ app_port }}
+    targetPort: {{ app_port }}
+    protocol: TCP
+

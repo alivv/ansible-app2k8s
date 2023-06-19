@@ -1,0 +1,44 @@
+#FROM {{ local_repository_url }}/base/java:{{ docker_build_base_image }}
+FROM registry.cn-shanghai.aliyuncs.com/elvin/java:{{ docker_build_base_image }}
+
+USER root
+
+ENV SERVICE_NAME={{ docker_image_name }}
+ENV SERVICE_VERSION={{ docker_image_tag }}
+ENV APP_BASE=/opt
+ENV APP_HOME=$APP_BASE/{{ docker_image_name }}
+
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+
+RUN set -xe ; \
+    mkdir -p $APP_HOME ; \
+    #download
+    # curl -sL -o $APP_HOME/{{ docker_image_name }}.jar  {{ release_download_url }}/{{ docker_image_name }}/{{ docker_image_tag }}/{{ docker_image_name }}.jar  ; \
+    curl -sL -o $APP_HOME/{{ docker_image_name }}.jar  http://files.elvin.vip/demo/hello-world.jar  ; \
+    #java_agent
+    mkdir -p /opt/java_agent/ ; cd /opt/java_agent/ ; \
+    curl -sL -o {{java_agent}}   {{ binary_download_url }}/{{java_agent}}  && \
+    curl -sL -o jmx_exporter.yml {{ binary_download_url }}/jmx_exporter.yml && \
+    # Add user
+    groupadd -g 999 -r java && useradd -u 999 -r -g java java ; \
+    mkdir -p /home/java ; \
+    chown -R java:java /home/java "$APP_HOME" /opt/java_agent ; \
+    chmod +x "/docker-entrypoint.sh" ; \
+    mkdir -p /var/log/app ; \
+    chown -R java:java /var/log/app ; \
+    chown java /etc/timezone ; \
+    rm -f /etc/localtime ; \
+    #alias
+    echo "alias ll='ls -hl --color=auto'" >>/etc/profile && \
+    echo "alias ll='ls -hl --color=auto'" >>/home/java/.bashrc ; \
+    echo "alias lll='cd /var/log/app'" >>/home/java/.bashrc ; \
+    echo "alias ccc='cd /opt/{{ k8s_pod_name }}/etc'" >>/home/java/.bashrc ; \
+    echo "alias ck='curl -s http://127.0.0.1:8080{{k8s_pod_readinessProbe_endpoint}} -H \"username: {{ vault_health_check_username }}\" -H \"password: {{ vault_health_check_password }}\" {% if k8s_pod_readinessProbe_httpType == 'json' %}|jq{% else %}-I{% endif %}'" >>/home/java/.bashrc ; \
+    rm -rf /tmp/*
+
+USER java
+WORKDIR $APP_HOME
+
+CMD ["/docker-entrypoint.sh"]
+
+# docker build --no-cache -t {{ local_repository_url }}/{{ local_repository_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile .

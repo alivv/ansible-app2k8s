@@ -1,0 +1,186 @@
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubepi-user
+  namespace: kube-system
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubepi-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: kubepi-user
+    namespace: kube-system
+
+# get Token
+# kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep kubepi-user | awk '{print $1}') | grep token: | awk '{print $2}'
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubepi
+  namespace: kube-system
+spec:
+  # type: NodePort
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: kubepi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubepi
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: kubepi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kubepi
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kubepi
+    spec:
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: "{{ docker_registry_key }}"
+{% endif %}
+      containers:
+        - name: kubepi
+          # image: kubeoperator/kubepi-server:latest
+          image: {{ deploy_repository_url }}/{{ deploy_public_category }}kubepi-server:v1.6.4
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          securityContext:
+            privileged: true
+
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1024Mi
+            limits:
+              cpu: 4000m
+              memory: 8192Mi
+
+          volumeMounts:
+          - name: data
+            mountPath: "/var/lib/kubepi"
+            subPath: k8s-kubepi
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: kubepi-pvc
+
+##############################配置域名#
+---
+
+# https crt
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kubepi-https-crt
+  namespace: kube-system
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ https_crt }}
+  tls.key: {{ https_key }}
+
+---
+#ingress
+
+{% if k8s_version is version("1.19","<") %}
+apiVersion: extensions/v1beta1
+{% else %}
+apiVersion: networking.k8s.io/v1
+{% endif %}
+kind: Ingress
+metadata:
+  name: kubepi
+  namespace: kube-system
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-connections: '100'
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  tls:
+  - secretName: kubepi-https-crt
+  rules:
+  - host: {{ kubepi_url }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+{% if k8s_version is version("1.19","<") %}
+          serviceName: kubepi
+          servicePort: 80
+{% else %}
+          service:
+            name: kubepi
+            port: 
+              number: 80
+{% endif %}
+
+##############################配置NFS存储#
+---
+#nfs
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kubepi-pv
+  namespace: kube-system
+  labels:
+    pv: kubepi-pv
+spec:
+  storageClassName: kubepi-pv
+  capacity:
+    storage: 1G
+  accessModes: 
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: {{ k8s_data_pvc.server }}
+    path: /data/nfs/others
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kubepi-pvc
+  namespace: kube-system
+spec:
+  storageClassName: kubepi-pv
+  accessModes: 
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1G
+  selector:
+    matchLabels:
+      pv: kubepi-pv
+
+##############################
+
+#https://kubeoperator.io/docs/kubepi/install/

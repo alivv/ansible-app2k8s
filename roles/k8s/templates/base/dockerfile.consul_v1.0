@@ -1,0 +1,18 @@
+FROM consul:1.0.0 AS temp1
+
+FROM alpine:3.16
+
+# {{ansible_date_time.date}}
+COPY dockerfile.{{ item }} /etc/dockerfile/
+
+COPY --from=temp1 /bin/consul /bin/consul
+
+RUN date ; \
+    cd /tmp ; \
+    sed -i 's/dl.*org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+    apk add --no-cache tzdata curl jq ; \
+    ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+#dockerfile.{{ item }}
+# docker build --no-cache -t {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ item }} .
+# docker push {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}

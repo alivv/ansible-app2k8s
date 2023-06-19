@@ -1,0 +1,64 @@
+---
+#'ce' (Community Edition) , 'ee' (Enterprise Edition).
+
+#Install Docker latest when docker_version is not defined
+# docker_version: "20.10.7"
+docker_edition: 'ce'
+docker_package: "docker-{{ docker_edition }}"
+docker_package_state: present
+
+#Private registry
+docker_local_ip: "{{ ansible_default_ipv4.address }}:5000"
+docker_node_network: "{{ ansible_default_ipv4.network }}/16"
+
+# Service options.
+docker_service_state: started
+docker_service_enabled: true
+docker_restart_handler_state: restarted
+
+# Docker Compose
+docker_install_compose: true
+# 1.29.2 2.10.2 2.14.1
+docker_compose_version: "2.14.1"
+docker_compose_path: /usr/local/bin/docker-compose
+docker_compose_url: http://files.elvin.vip/docker/docker-compose-linux-x86_64_{{ docker_compose_version }}
+# https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-x86_64
+
+
+# cn_source: https://mirrors.aliyun.com/docker-ce
+cn_source: https://mirrors.tuna.tsinghua.edu.cn/docker-ce
+# cn_source: https://repo.huaweicloud.com/docker-ce
+# cn_source: http://mirrors.163.com/docker-ce
+
+
+# Debian/Ubuntu
+docker_apt_release_channel: stable
+docker_apt_arch: amd64
+docker_apt_repository: "deb [arch={{ docker_apt_arch }}] {{ cn_source }}/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} {{ docker_apt_release_channel }}"
+docker_apt_ignore_key_error: true
+docker_apt_gpg_key: "{{ cn_source }}/linux/{{ ansible_distribution | lower }}/gpg"
+
+# RedHat/CentOS/Fedora.
+docker_yum_repo_url: '{{ cn_source }}/linux/{{ (ansible_distribution == "Fedora") | ternary("fedora","centos") }}/docker-{{ docker_edition }}.repo'
+docker_yum_repo_enable_edge: '0'
+docker_yum_repo_enable_test: '0'
+docker_yum_gpg_key: "{{ cn_source }}/linux/centos/gpg"
+
+# A list of users who will be added to the docker group.
+docker_users: []
+
+#https://docs.docker.com/engine/install/centos/
+
+
+#Refer to geerlingguy.docker
+
+
+#docker registry
+registry_username: admin
+registry_password: docker
+registry_net_name: "registry-net"
+registry_ui_port:  80
+registry_data_dir: "/data/docker/docker-registry"
+registry_domain_name: "hub.elvin.vip"
+registry_download_url: "http://files.elvin.vip/docker"
+

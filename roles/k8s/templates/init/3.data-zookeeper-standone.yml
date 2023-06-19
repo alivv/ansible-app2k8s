@@ -1,0 +1,149 @@
+#zookeeper.yml
+
+---
+#Headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ zookeeper.name }}
+  namespace: {{ namespace }}
+  labels:
+    app: {{ zookeeper.name }}
+    env: {{ env }}
+spec:
+  selector:
+    app: {{ zookeeper.name }}
+    env: {{ env }}
+  clusterIP: "None"
+  ports: 
+  - name: zookeeper
+    port: 2181
+    targetPort: 2181
+
+---
+#zookeeper
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ zookeeper.name }}
+  namespace: {{ namespace }}
+spec:
+  replicas: 1
+  serviceName: {{ zookeeper.name }}
+  selector:
+    matchLabels:
+      app: {{ zookeeper.name }}
+      env: {{ env }}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{java_agent_port}}"
+      labels:
+        app.kubernetes.io/name: zookeeper
+        app: {{ zookeeper.name }}
+        env: {{ env }}
+    spec:
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+       - name: {{ docker_registry_key }}
+{% endif %}
+{% if k8s_nodeAffinity == true %}
+      affinity:
+        nodeAffinity:
+          {# #硬策略  -#} 
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: x.k8sNodeEnv
+                operator: In
+                values:
+                - all
+                - {{env}}
+{% endif %}
+      containers:
+      - name: {{ zookeeper.name }}
+        image: "{{ deploy_repository_url }}/{{ deploy_public_category }}zookeeper:{{ zookeeper.tag }}"
+        # imagePullPolicy: Always  # IfNotPresent
+        volumeMounts:
+        - name: datadir
+          mountPath: "/data"
+          subPath: {{ zookeeper.name }}/data
+        - name: datadir
+          mountPath: "/datalog"
+          subPath: {{ zookeeper.name }}/datalog
+        ports:
+        - name: zookeeper
+          containerPort: 2181
+          protocol: TCP
+        env:
+        - name: ZOO_TICK_TIME
+          value: '2000'
+        - name: ZOO_INIT_LIMIT
+          value: '10'
+        - name: ZOO_SYNC_LIMIT
+          value: '10'
+        - name: ZOO_MAX_CLIENT_CNXNS
+          value: '100'
+        - name: ZOO_AUTOPURGE_PURGEINTERVAL
+          value: '12'
+        - name: ZOO_AUTOPURGE_SNAPRETAINCOUNT
+          value: '10'
+        - name: SERVER_JVMFLAGS
+          value: '-Xms{{ZKxmx}}m -Xmx{{ZKxmx}}m -XX:ActiveProcessorCount={{ zookeeper.gcpu }}'
+        - name: JMX_AGENT
+          value: '-javaagent:/data/jmx_agent.jar={{java_agent_port}}:/data/zookeeper.yaml'
+        command:
+        - bash
+        - -c
+        - |
+          if [ -f /data/jmx_agent.jar ]; then
+            echo "jmx-agent ok"
+          else
+            echo 'download jmx_agent'
+            wget -q -O /data/jmx_agent.jar  https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar
+            wget -q -O /data/zookeeper.yaml http://files.elvin.vip/download/zookeeper.yaml
+          fi
+          echo "alias ll='ls -hl --color=auto'" >>~/.bashrc
+          echo '#/bin/bash' >/opt/check
+          echo '[ "$(echo ruok | nc 127.0.0.1 2181)"  == "imok" ] && { exit 0 ; } || { echo "Not UP"; exit 1 ; } ' >>/opt/check
+          chmod +x /opt/check
+          sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list
+          sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list
+          sed -i 's/deb.debian.org/mirrors.aliyun.com/g'     /etc/apt/sources.list
+          sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
+          echo -e '#!/bin/bash\n#install tools\napt-get update ' >install.tools.sh
+          echo "apt install -y --no-install-recommends --assume-yes net-tools vim-tiny inetutils-ping procps " >>install.tools.sh
+          chmod +x install.tools.sh
+          export SERVER_JVMFLAGS="$SERVER_JVMFLAGS $JMX_AGENT"
+          /docker-entrypoint.sh zkServer.sh start-foreground
+        resources:
+          requests:
+            cpu: {{ zookeeper.requests_cpu }}
+            memory: {{ zookeeper.requests_ram }}
+          limits:
+            cpu: {{ zookeeper.limits_cpu }}
+            memory: {{ zookeeper.limits_ram }}
+        readinessProbe:
+          periodSeconds: 5
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - /opt/check
+        livenessProbe:
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          initialDelaySeconds: 10
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - /opt/check
+      # terminationGracePeriodSeconds: 10
+
+      volumes:
+      - name: datadir
+        persistentVolumeClaim:
+          claimName: {{ k8s_data_pvc.name }}

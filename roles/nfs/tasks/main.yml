@@ -1,0 +1,82 @@
+---
+
+#nfs client
+- block:
+  - name: Install nfs package for debina 
+    package:
+      name:
+        - nfs-common
+      state: present
+    when: ansible_os_family == 'Debian'
+
+  - name: Install nfs package redhat 
+    package:
+      name:
+        - nfs-utils
+      state: present
+    when: ansible_os_family == 'RedHat'
+  tags: nfs
+
+
+#nfs server
+- name: "create dir for nfs-server"
+  file:
+    state:    directory
+    path:     "{{ item }}"
+    mode: "0777"
+  with_items: "{{ nfs_sub_directory }}"
+  tags: never,nfs-server
+
+- name: config | Copy exports file.
+  template:
+    src: exports.j2
+    dest: /etc/exports
+    owner: root
+    group: root
+    mode: 0644
+  register: nfs_exports_copy
+  tags: never,nfs-server
+
+- block:
+  - name: Install nfs server
+    package:
+      name:
+        - nfs-kernel-server
+        - nfs-common
+      state: present
+
+  - name: restart nfs
+    systemd:
+      name: nfs-kernel-server
+      enabled: yes
+      daemon_reload: yes
+      state: restarted
+    when: nfs_exports_copy.changed
+  when: ansible_os_family == 'Debian'
+  tags: never,nfs-server
+
+- block:
+  - name: Install nfs server
+    package:
+      name:
+        - nfs-server
+        - rpcbind
+        - nfs-utils
+      state: present
+
+  - name: start rpcbind
+    systemd:
+      name: rpcbind
+      enabled: yes
+      daemon_reload: yes
+      state: started
+
+  - name: restart nfs
+    systemd:
+      name: nfs
+      enabled: yes
+      daemon_reload: yes
+      state: restarted
+    when: nfs_exports_copy.changed
+  when: ansible_os_family == 'RedHat'
+  tags: never,nfs-server

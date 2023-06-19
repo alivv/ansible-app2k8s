@@ -1,0 +1,178 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubepi-user
+  namespace: kube-system
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubepi-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: kubepi-user
+    namespace: kube-system
+
+##############################自定义权限#
+---
+#1
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dev-node-read
+  labels:
+    kubepi.org/manage: kubepi
+    kubepi.org/role-type: cluster
+  annotations:
+    builtin: 'false'
+    description: '普通用户必选不然报错(v1.5.3), 查看k8s集群CPU、内存使用率'
+rules:
+  - verbs:
+      - list
+      - get
+    apiGroups:
+      - '*'
+    resources:
+      - nodes
+
+---
+#2
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dev-pod-read
+  labels:
+    kubepi.org/manage: kubepi
+    kubepi.org/role-type: namespace
+  annotations:
+    builtin: 'false'
+    description: '基本查看权限, 包含: pod容器、pod日志、deployment、service'
+rules:
+  - verbs:
+      - get
+      - list
+      - watch
+    apiGroups:
+      - '*'
+    resources:
+      - pods
+      - services
+      - deployments
+      - pods/log
+      - replicasets
+
+---
+#3
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dev-pod-exec
+  labels:
+    kubepi.org/manage: kubepi
+    kubepi.org/role-type: namespace
+  annotations:
+    builtin: 'false'
+    description: '进入pod终端权限'
+rules:
+  - verbs:
+      - create
+    apiGroups:
+      - '*'
+    resources:
+      - pods/exec
+
+---
+#4
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dev-configmap-read
+  labels:
+    kubepi.org/manage: kubepi
+    kubepi.org/role-type: namespace
+  annotations:
+    builtin: 'false'
+    description: 'configmap查看权限'
+rules:
+  - verbs:
+      - list
+      - get
+      - watch
+    apiGroups:
+      - ''
+    resources:
+      - configmaps
+
+---
+#5
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dev-configmap-write
+  labels:
+    kubepi.org/manage: kubepi
+    kubepi.org/role-type: namespace
+  annotations:
+    builtin: 'false'
+    description: 'configmap读写权限'
+rules:
+  - verbs:
+      - '*'
+    apiGroups:
+      - '*'
+    resources:
+      - configmaps
+
+---
+#6
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dev-deployment-update
+  labels:
+    kubepi.org/manage: kubepi
+    kubepi.org/role-type: namespace
+  annotations:
+    builtin: 'false'
+    description: 'deployment读写权限'
+rules:
+  - verbs:
+      - get
+      - list
+      - patch
+      - watch
+      - update
+    apiGroups:
+      - apps
+    resources:
+      - deployments
+
+---
+#7
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dev-ingress-read
+  labels:
+    kubepi.org/manage: kubepi
+    kubepi.org/role-type: namespace
+  annotations:
+    builtin: 'false'
+    description: 'ingress查看'
+rules:
+  - verbs:
+      - get
+      - list
+      - patch
+    apiGroups:
+      - '*'
+    resources:
+      - ingresses
+

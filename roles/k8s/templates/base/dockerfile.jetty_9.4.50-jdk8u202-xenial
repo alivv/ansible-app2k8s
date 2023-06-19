@@ -1,0 +1,60 @@
+FROM {{ local_repository_url }}/{{ base_category }}java:jdk-8u202-xenial
+
+# {{ansible_date_time.date}}
+COPY dockerfile.{{ item }} /etc/dockerfile/
+
+ENV JETTY_VERSION=9.4.50.v20221201
+ENV JETTY_HOME=/usr/local/jetty
+ENV JETTY_BASE=/var/lib/jetty
+ENV PATH=$JETTY_HOME/bin:$PATH
+
+RUN set -xe ;\
+    #
+    # Fetch jetty release
+    mkdir -p $JETTY_HOME ; \
+    cd $JETTY_HOME ; \
+    # curl -SL -o /tmp/jetty.tar.gz http://192.168.3.112:81/binaries/jetty/jetty-distribution-$JETTY_VERSION.tar.gz  ; \
+    curl -SL -o /tmp/jetty.tar.gz https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-distribution/${JETTY_VERSION}/jetty-distribution-${JETTY_VERSION}.tar.gz  ; \
+    #
+    # Unpack jetty
+    tar -xf /tmp/jetty.tar.gz --strip-components=1 ; \
+    #
+    # Create and configure the JETTY_HOME directory
+    mkdir -p "$JETTY_BASE" ; \
+	cd $JETTY_BASE ; \
+	java -jar "$JETTY_HOME/start.jar" --create-startd \
+		--add-to-start="server,http,deploy,jsp,jstl,ext,resources,websocket,sessions" ; \
+    #
+    # Add user
+    groupadd --gid 999 jetty  && \
+    useradd --uid 999 --gid jetty --shell /bin/bash --create-home jetty && \
+    mkdir -p /home/jetty ; \
+    chown -R jetty:jetty /home/jetty "$JETTY_HOME" "$JETTY_BASE" ; \
+    #
+    # Clean
+    find /var/log/ -type f | xargs rm -f && \
+    rm -rf /var/cache/apt/* /var/lib/apt/lists/* /tmp/*  ; \
+    cd $JETTY_HOME ; \
+    rm -rf "demo-base" "webapps/README.TXT" ; \
+    #
+    # Basic smoke test 
+	java -jar "$JETTY_HOME/start.jar" --list-config ;
+
+
+WORKDIR  $JETTY_HOME
+# COPY docker-entrypoint.sh /
+# RUN chmod +x /docker-entrypoint.sh;
+
+USER jetty
+EXPOSE 8080
+# ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["java","-jar","/usr/local/jetty/start.jar"]
+
+
+# {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}
+# docker build --no-cache -t {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ docker_image_name }}_{{ docker_image_tag }} .
+
+#https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-home/
+#https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-distribution/
+
+#https://github.com/docker-library/docs/tree/master/jetty

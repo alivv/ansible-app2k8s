@@ -1,0 +1,108 @@
+---
+
+# - name: print test
+#   debug:
+#     msg:
+#       - "{{ build_dir }}/{{ docker_image_name }}/"
+#       - "{{ docker_image_tag }}"
+#       - "{{ docker_build_service_type }}"
+#   tags: always
+
+- name: "Copy dockerfile for {{ item }}"
+  template:
+    src: "{{ docker_build_service_type }}/build/dockerfile"
+    dest: "{{ build_dir }}/{{ docker_image_name }}/"
+  tags: build,dockerfile
+
+#jetty
+- name: "Copy jetty.sh for {{ item }}"
+  template:
+    src: "jetty/build/{{copy_files}}"
+    dest: "{{ build_dir }}/{{ docker_image_name }}/"
+  with_items:
+    - jetty.sh
+    - contexts.xml
+  loop_control:
+    loop_var: copy_files
+  when: docker_build_service_type == "jetty"
+  tags: build,dockerfile
+
+#java
+- name: "Copy docker-entrypoint.sh for {{ item }}"
+  template:
+    src: "java/build/docker-entrypoint/{{ item }}.sh"
+    dest: "{{ build_dir }}/{{ docker_image_name }}/docker-entrypoint.sh"
+  when: docker_build_service_type == "java"
+  tags: build,dockerfile
+
+#nginx
+- name: "Copy nginx.conf for {{ item }}"
+  template:
+    src: "nginx/build/{{ docker_image_name }}.conf"
+    dest: "{{ build_dir }}/{{ docker_image_name }}/nginx.conf"
+  when: docker_build_service_type == "nginx" and docker_build_add_conf == true
+  tags: build,dockerfile
+
+#mule
+- name: "Upload healtcheck.sh for {{ item }}"
+  template:
+    src: "mule/build/healtcheck.sh"
+    dest: "{{ build_dir }}/{{ docker_image_name }}/{{ docker_image_tag }}/"
+  when: docker_build_service_type == "mule"
+  tags:
+    - build
+    - dockerfile
+
+#Delete the local image to ensure the success of the new build
+- name: rmi {{ local_repository_url }}/{{ local_repository_category }}{{ item }}:{{ docker_image_tag }}
+  docker_image:
+    state: absent
+    force: yes
+    name: "{{ local_repository_url }}/{{ local_repository_category }}{{ item }}"
+    tag: "{{ docker_image_tag }}"
+  tags: never,rmi,build
+
+- name: build and push to local-repository for {{ item }}
+  docker_image:
+    path: "{{ build_dir }}/{{ item }}/"
+    name: "{{ local_repository_url }}/{{ local_repository_category }}{{ item }}"
+    tag: "{{ docker_image_tag }}"
+    push: yes
+    rm: yes
+    nocache: yes
+  tags: build,build2
+
+- name: tag latest and to local-repository for {{ item }}
+  docker_image:
+    name: "{{ local_repository_url }}/{{ local_repository_category }}{{ item }}:{{ docker_image_tag }}"
+    repository: "{{ local_repository_url }}/{{ local_repository_category }}{{ item }}:latest"
+    force: yes
+    push: yes
+  tags: never,latest
+
+#Create a repository for AWS
+- name: "Creating a private repository for {{ item }}"
+  shell: |
+    . /etc/profile
+    #create repository
+    aws ecr create-repository --region {{ aws_region }} --repository-name {{ item }}
+    #Add policy to keep only 10 images
+    [ -f /tmp/aws-ecr-policy.json ] || { curl -so /tmp/aws-ecr-policy.json http://files.elvin.vip/demo/aws-ecr-policy-n10.json ; }
+    aws ecr put-lifecycle-policy --region {{aws_region}} \
+    --repository-name {{ item }} --lifecycle-policy-text file:///tmp/aws-ecr-policy.json
+    date
+  changed_when: false
+  when: k8s_env == 'aws'
+  tags: upload,build
+
+- name: "upload {{ item }}:{{ docker_image_tag }} to {{ push_repository_url }}/{{ push_repository_category }}"
+  docker_image:
+    name: "{{ local_repository_url }}/{{ local_repository_category }}{{ item }}:{{ docker_image_tag }}"
+    repository: "{{ push_repository_url }}/{{ push_repository_category }}{{ item }}:{{ docker_image_tag }}"
+    push: yes
+    force: yes
+  when: env != 'dev'
+  tags: upload,build
+
+
+#https://docs.ansible.com/ansible/2.7/modules/docker_image_module.html

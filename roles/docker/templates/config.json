@@ -1,0 +1,7 @@
+{
+    "auths": {
+        "{{ registry_domain_name }}": {
+                "auth": "{{ get_registry_auth.stdout }}"
+        }
+    }
+}

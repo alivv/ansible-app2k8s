@@ -1,0 +1,20 @@
+---
+
+#static
+app_static_version:           "v1.0.1"
+app_static_v1_version:        "v1.0.1"
+app_static_v2_version:        "v1.0.1"
+#app
+app_v1_version:               "v1.0.1"
+app_v2_version:               "v1.0.1"
+
+##ms
+ms_eureka_version:            "v1.0.1"
+ms_api1_version:              "v1.0.1"
+ms_api2_version:              "v1.0.1"
+
+##web app
+web_demo1_version:            "v1.0.1"
+web_demo1_v1_version:         "v1.0.1"
+web_demo1_v2_version:         "v1.0.1"
+

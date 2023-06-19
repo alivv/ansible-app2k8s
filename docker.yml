@@ -1,0 +1,19 @@
+---
+
+- hosts: docker
+  gather_facts: yes
+  roles:
+    -  docker
+
+#add hosts for registry, for test
+- hosts: all
+  gather_facts: yes
+  tasks:
+  - name: add hosts
+    lineinfile:
+      path: /etc/hosts
+      create: yes
+      line: "{{ item }}"
+    with_items:
+    - '{{ local_repository_ip }}    {{ local_repository_url }}'
+    tags: never,hosts-registry

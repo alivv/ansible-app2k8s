@@ -1,0 +1,868 @@
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: permission-manager
+
+{% if docker_registry_key|default('') != '' %}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ docker_registry_key }}
+  namespace: permission-manager
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: {{ docker_registry_config_json }}
+{% endif %}
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: permission-manager
+  namespace: permission-manager
+type: Opaque
+stringData:
+  PORT: "4000"
+  CLUSTER_NAME: "{{ env }}-k8s"
+  BASIC_AUTH_PASSWORD: "{{k8sAdmin_pwd}}"
+{% if env == 'dev' %}
+  CONTROL_PLANE_ADDRESS: "https://10.96.0.1:443"
+{% else %}
+  CONTROL_PLANE_ADDRESS: "https://10.0.0.1:443"
+{% endif %}
+
+---
+#crd
+
+{% if k8s_version|default(1.18) * 100 < 118 %}
+apiVersion: "apiextensions.k8s.io/v1beta1"
+{% else %}
+apiVersion: "apiextensions.k8s.io/v1"
+{% endif %}
+kind: "CustomResourceDefinition"
+metadata:
+  name: "permissionmanagerusers.permissionmanager.user"
+spec:
+  group: "permissionmanager.user"
+  scope: "Cluster"
+  names:
+    plural: "permissionmanagerusers"
+    singular: "permissionmanageruser"
+    kind: "Permissionmanageruser"
+{% if k8s_version|default(1.18) * 100 < 118 %}
+  version: "v1alpha1"
+  validation:
+    openAPIV3Schema:
+      required: ["spec"]
+      properties:
+        spec:
+          required: ["name"]
+          properties:
+            name:
+              type: "string"
+              minimum: 2
+{% else %} 
+  versions: 
+    - name: "v1alpha1"
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+{% endif %} 
+
+---
+#seed
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: template-namespaced-resources___operation
+rules:
+  - apiGroups:
+      - "*"
+    resources:
+      - "*"
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: template-namespaced-resources___developer
+rules:
+  - apiGroups:
+      - "*"
+    resources:
+      - "configmaps"
+      - "endpoints"
+      - "persistentvolumeclaims"
+      - "pods"
+      - "pods/log"
+      - "pods/portforward"
+      - "podtemplates"
+      - "replicationcontrollers"
+      - "resourcequotas"
+      - "secrets"
+      - "services"
+      - "events"
+      - "daemonsets"
+      - "deployments"
+      - "replicasets"
+      - "ingresses"
+      - "networkpolicies"
+      - "poddisruptionbudgets"
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: template-cluster-resources___read-only
+rules:
+  # INIT: Copied from https://github.com/lensapp/lens/pull/644/files#diff-e8fd9c95df786da51f13c3a7442a1d88b3ac4294b786bc268ac92a4072bf50e7R5-R198
+  # Solves issue #43 with the PR #45
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - bindings
+      - componentstatuses
+      - configmaps
+      - endpoints
+      - events
+      - limitranges
+      - namespaces
+      - namespaces/finalize
+      - namespaces/status
+      - nodes
+      - nodes/proxy
+      - nodes/status
+      - persistentvolumeclaims
+      - persistentvolumeclaims/status
+      - persistentvolumes
+      - persistentvolumes/status
+      - pods
+      - pods/attach
+      - pods/binding
+      - pods/eviction
+      - pods/exec
+      - pods/log
+      - pods/proxy
+      - pods/status
+      - podtemplates
+      - replicationcontrollers
+      - replicationcontrollers/scale
+      - replicationcontrollers/status
+      - resourcequotas
+      - resourcequotas/status
+      - serviceaccounts
+      - services
+      - services/proxy
+      - services/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - controllerrevisions
+      - daemonsets
+      - daemonsets/status
+      - deployments
+      - deployments/scale
+      - deployments/status
+      - replicasets
+      - replicasets/scale
+      - replicasets/status
+      - statefulsets
+      - statefulsets/scale
+      - statefulsets/status
+    verbs:
+      - list
+      - get
+      - watch
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+      - jobs/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - autoscaling
+    resources:
+      - horizontalpodautoscalers
+      - horizontalpodautoscalers/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - storage.k8s.io
+    resources:
+      # - csidrivers
+      # - csinodes
+      # - storageclasses
+      - volumeattachments
+      - volumeattachments/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - networkpolicies
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - scheduling.k8s.io
+    resources:
+      - priorityclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - node.k8s.io
+    resources:
+      - runtimeclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - extensions
+    resources:
+      - ingresses
+      - ingresses/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+      - customresourcedefinitions/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apiregistration.k8s.io
+    resources:
+      - apiservices
+      - apiservices/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - metrics.k8s.io
+    resources:
+      - pods
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+      - poddisruptionbudgets/status
+      - podsecuritypolicies
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      # - clusterrolebindings
+      - clusterroles
+      - rolebindings
+      - roles
+    verbs:
+      - get
+      - list
+      - watch
+  # END
+  - apiGroups:
+      - "*"
+    resources:
+      - "componentstatuses"
+      - "namespaces"
+      - "nodes"
+      # - "persistentvolumes"
+      - "mutatingwebhookconfigurations"
+      - "validatingwebhookconfigurations"
+      - "customresourcedefinitions"
+      - "apiservices"
+      - "tokenreviews"
+      - "selfsubjectaccessreviews"
+      - "selfsubjectrulesreviews"
+      - "subjectaccessreviews"
+      - "certificatesigningrequests"
+      - "runtimeclasses"
+      - "podsecuritypolicies"
+      # - "clusterrolebindings"
+      # - "clusterroles"
+      - "priorityclasses"
+      # - "csidrivers"
+      # - "csinodes"
+      # - "storageclasses"
+      - "volumeattachment"
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: template-cluster-resources___admin
+rules:
+  # INIT: Copied from https://github.com/lensapp/lens/pull/644/files#diff-e8fd9c95df786da51f13c3a7442a1d88b3ac4294b786bc268ac92a4072bf50e7R5-R198
+  # Solves issue #43 with the PR #45
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - bindings
+      - componentstatuses
+      - configmaps
+      - endpoints
+      - events
+      - limitranges
+      - namespaces
+      - namespaces/finalize
+      - namespaces/status
+      - nodes
+      - nodes/proxy
+      - nodes/status
+      - persistentvolumeclaims
+      - persistentvolumeclaims/status
+      - persistentvolumes
+      - persistentvolumes/status
+      - pods
+      - pods/attach
+      - pods/binding
+      - pods/eviction
+      - pods/exec
+      - pods/log
+      - pods/proxy
+      - pods/status
+      - podtemplates
+      - replicationcontrollers
+      - replicationcontrollers/scale
+      - replicationcontrollers/status
+      - resourcequotas
+      - resourcequotas/status
+      - serviceaccounts
+      - services
+      - services/proxy
+      - services/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - controllerrevisions
+      - daemonsets
+      - daemonsets/status
+      - deployments
+      - deployments/scale
+      - deployments/status
+      - replicasets
+      - replicasets/scale
+      - replicasets/status
+      - statefulsets
+      - statefulsets/scale
+      - statefulsets/status
+    verbs:
+      - list
+      - get
+      - watch
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+      - jobs/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - autoscaling
+    resources:
+      - horizontalpodautoscalers
+      - horizontalpodautoscalers/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - storage.k8s.io
+    resources:
+      - csidrivers
+      - csinodes
+      - storageclasses
+      - volumeattachments
+      - volumeattachments/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - networkpolicies
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - scheduling.k8s.io
+    resources:
+      - priorityclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - node.k8s.io
+    resources:
+      - runtimeclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - extensions
+    resources:
+      - ingresses
+      - ingresses/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+      - customresourcedefinitions/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apiregistration.k8s.io
+    resources:
+      - apiservices
+      - apiservices/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - metrics.k8s.io
+    resources:
+      - pods
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+      - poddisruptionbudgets/status
+      - podsecuritypolicies
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterrolebindings
+      - clusterroles
+      - rolebindings
+      - roles
+    verbs:
+      - get
+      - list
+      - watch
+  # END
+  - apiGroups:
+      - "*"
+    resources:
+      - "componentstatuses"
+      - "namespaces"
+      - "nodes"
+      - "persistentvolumes"
+      - "mutatingwebhookconfigurations"
+      - "validatingwebhookconfigurations"
+      - "customresourcedefinitions"
+      - "apiservices"
+      - "tokenreviews"
+      - "selfsubjectaccessreviews"
+      - "selfsubjectrulesreviews"
+      - "subjectaccessreviews"
+      - "certificatesigningrequests"
+      - "runtimeclasses"
+      - "podsecuritypolicies"
+      - "clusterrolebindings"
+      - "clusterroles"
+      - "priorityclasses"
+      - "csidrivers"
+      - "csinodes"
+      - "storageclasses"
+      - "volumeattachment"
+    verbs: ["*"]
+
+---
+
+###deploy
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: permission-manager
+  name: permission-manager
+spec:
+  selector:
+    app: permission-manager
+  ports:
+    - protocol: TCP
+      port: 4000
+      targetPort: 4000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: permission-manager
+  name: permission-manager
+  labels:
+    app: permission-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: permission-manager
+  template:
+    metadata:
+      labels:
+        app: permission-manager
+    spec:
+      serviceAccountName: permission-manager
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: "{{ docker_registry_key }}"
+{% endif %}
+      containers:
+        - name: permission-manager
+          # image: quay.io/sighup/permission-manager:v1.7.0-rc3
+          image: {{ deploy_repository_url }}/{{ deploy_public_category }}permission-manager:v1.7.0-rc3
+          ports:
+            - containerPort: 4000
+          envFrom:
+            - secretRef:
+                name: permission-manager
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: permission-manager
+  namespace: permission-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: permission-manager
+rules:
+  # Allow full management of all the Permission Manager resources
+  - apiGroups: [ "permissionmanager.user" ]
+    resources:
+      - "*"
+    verbs: [ "get", "list", "create", "update", "delete", "watch" ]
+  # Allow full management of the RBAC resources
+  - apiGroups:
+      - "rbac.authorization.k8s.io"
+    resources:
+      - "clusterrolebindings"
+      - "clusterroles"
+      - "rolebindings"
+      - "roles"
+    verbs: [ "get", "list", "create", "update", "delete", "bind", "watch" ]
+  - apiGroups: [""]
+    resources:
+      - "serviceaccounts"
+      - "secrets"
+    verbs: [ "get", "list", "create", "update", "delete", "watch" ]
+  # Allow full management of certificates CSR, including their approval
+  - apiGroups: [ "certificates.k8s.io" ]
+    resources:
+      - "certificatesigningrequests"
+      - "certificatesigningrequests/approval"
+    verbs: [ "get", "list", "create", "update", "delete", "watch" ]
+  # Support legacy versions, before signerName was added
+  # (see https://github.com/kubernetes/kubernetes/pull/88246)
+  - apiGroups: [ "certificates.k8s.io" ]
+    resources:
+      - "signers"
+    resourceNames:
+      - "kubernetes.io/legacy-unknown"
+      - "kubernetes.io/kube-apiserver-client"
+    verbs: [ "approve" ]
+  # Allow to get and list Namespaces
+  - apiGroups: [ "" ]
+    resources:
+      - "namespaces"
+    verbs: [ "get", "list" ]
+---
+{% if k8s_version|default(1.18) * 100 < 118 %}
+apiVersion: rbac.authorization.k8s.io/v1beta1
+{% else %}
+apiVersion: rbac.authorization.k8s.io/v1
+{% endif %}
+kind: ClusterRoleBinding
+metadata:
+  name: permission-manager
+roleRef:
+  kind: ClusterRole
+  name: permission-manager
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: permission-manager
+    namespace: permission-manager
+
+
+{% if monitor_scheme == 'https' %}
+---
+#https
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{k8sAdmin_url}}-ssl
+  namespace: permission-manager
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ https_crt }}
+  tls.key: {{ https_key }}
+{% endif %}
+
+---
+#ingress
+
+{% if k8s_version is version("1.19","<") %}
+apiVersion: extensions/v1beta1
+{% else %}
+apiVersion: networking.k8s.io/v1
+{% endif %}
+kind: Ingress
+metadata:
+  name: permission-manager
+  namespace: permission-manager
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-connections: '100'
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+{% if monitor_scheme == 'https' %}
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # cert-manager.io/cluster-issuer: "letsencrypt"
+{% else %}
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+{% endif %}
+spec:
+  tls:
+{% if monitor_scheme == 'https' %}
+  - hosts:
+      - {{k8sAdmin_url}}
+    secretName: {{k8sAdmin_url}}-ssl
+{% endif %}
+  rules:
+  - host: {{k8sAdmin_url}}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+{% if k8s_version is version("1.19","<") %}
+          serviceName: permission-manager
+          servicePort: 4000
+{% else %}
+          service:
+            name: permission-manager
+            port: 
+              number: 4000
+{% endif %}
+
+
+---
+#自定义模板
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: template-namespaced-resources___dev-read
+rules:
+  - apiGroups:
+      - "*"
+    resources:
+      - "configmaps"
+      - "endpoints"
+      - "persistentvolumeclaims"
+      - "pods"
+      - "pods/log"
+      - "pods/portforward"
+      - "podtemplates"
+      - "replicationcontrollers"
+      - "resourcequotas"
+      # - "secrets"
+      - "services"
+      - "events"
+      - "daemonsets"
+      - "deployments"
+      - "replicasets"
+      - "ingresses"
+      - "networkpolicies"
+      - "poddisruptionbudgets"
+      - "services"
+      - "events"
+      - "ingresses"
+      - "networkpolicies"
+      - "poddisruptionbudgets"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: template-namespaced-resources___prod-read
+rules:
+  - apiGroups:
+      - "*"
+    resources:
+      # - "configmaps"
+      - "endpoints"
+      - "persistentvolumeclaims"
+      - "pods"
+      - "pods/log"
+      - "pods/portforward"
+      - "podtemplates"
+      - "replicationcontrollers"
+      - "resourcequotas"
+      # - "secrets"
+      - "services"
+      - "events"
+      - "daemonsets"
+      - "deployments"
+      - "replicasets"
+      - "ingresses"
+      - "networkpolicies"
+      - "poddisruptionbudgets"
+      - "services"
+      - "events"
+      - "ingresses"
+      - "networkpolicies"
+      - "poddisruptionbudgets"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: template-namespaced-resources___Pod-exec
+rules:
+  - apiGroups:
+      - "*"
+    resources:
+      - "pods/exec"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+      - "create"
+
+---
+#github
+#https://github.com/sighupio/permission-manager/blob/master/docs/installation.md

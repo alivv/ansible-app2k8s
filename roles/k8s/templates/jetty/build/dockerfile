@@ -1,0 +1,46 @@
+{% if docker_build_base_image == "jetty9" %}
+#FROM {{ local_repository_url }}/base/jetty:9.4.50-jdk8u202-focal
+FROM registry.cn-shanghai.aliyuncs.com/elvin/jetty:9.4.50-jdk8u202-focal
+{% elif docker_build_base_image == "jetty9-17" %}
+#FROM {{ local_repository_url }}/base/jetty:9.4.50-jdk17.0.5
+FROM registry.cn-shanghai.aliyuncs.com/elvin/jetty:9.4.50-jdk17.0.5
+{% endif %}
+
+# {{ansible_date_time.date}}
+COPY dockerfile /etc/dockerfile/
+
+USER root
+
+ENV SERVICE_NAME={{ docker_image_name }} \
+    SERVICE_VERSION={{ docker_image_tag }}
+
+COPY contexts.xml $JETTY_BASE/webapps/
+COPY jetty.sh $JETTY_BASE/
+
+RUN cd  $JETTY_BASE/webapps/ && \
+    # curl -sL -o {{ docker_image_name }}.war  {{ release_download_url }}/{{ docker_image_name }}/{{ docker_image_tag }}/{{ docker_image_name }}.war && \
+    curl -sL -o {{ docker_image_name }}.war  http://files.elvin.vip/demo/helloworld.war && \
+    #java_agent
+    mkdir -p /opt/java_agent/ ; cd /opt/java_agent/ ; \
+    curl -sL -o {{java_agent}}   {{ binary_download_url }}/{{java_agent}}  && \
+    curl -sL -o jmx_exporter.yml {{ binary_download_url }}/jmx_exporter.yml && \
+    #jetty
+    sed -i '/workerName/s/#jetty.sessionIdManager.workerName=node1/jetty.sessionIdManager.workerName=/g' /var/lib/jetty/start.d/sessions.ini ; \
+    chown jetty /etc/timezone ; \
+    rm -f /etc/localtime ; \
+    chmod +x $JETTY_BASE/jetty.sh && \
+    chown -R jetty:jetty $JETTY_BASE && \
+    mkdir -p /var/log/app ; chown -R jetty:jetty /var/log/app ; \
+    #alias
+    echo "alias ll='ls -hl --color=auto'" >>/etc/profile && \
+    echo "alias ll='ls -hl --color=auto'" >>/home/jetty/.bashrc ; \
+    echo "alias lll='cd /var/log/app'" >>/home/jetty/.bashrc ; \
+    echo "alias ccc='cd /var/lib/jetty/etc/{{ docker_image_name }}{% if properties_path == 'spring' %}/META-INF/spring{% endif %}'" >>/home/jetty/.bashrc ; \
+    echo "alias ck='curl -s http://127.0.0.1:8080{{k8s_pod_readinessProbe_endpoint}} -H \"username: {{ vault_health_check_username }}\" -H \"password: {{ vault_health_check_password }}\" {% if k8s_pod_readinessProbe_httpType == 'json' %}|jq{% else %}-I{% endif %}'" >>/home/jetty/.bashrc ; 
+
+USER jetty
+WORKDIR $JETTY_BASE
+
+CMD ["./jetty.sh"]
+
+# docker build --no-cache -t {{ local_repository_url }}/{{ local_repository_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile .

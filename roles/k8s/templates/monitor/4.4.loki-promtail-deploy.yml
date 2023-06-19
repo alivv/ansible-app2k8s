@@ -1,0 +1,140 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: loki-promtail
+  labels:
+    app: promtail
+  namespace: {{ monitor_namespace }}
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+    app: promtail
+  name: promtail-clusterrole
+  namespace: {{ monitor_namespace }}
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "watch", "list"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: promtail-clusterrolebinding
+  labels:
+    app: promtail
+  namespace: {{ monitor_namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: loki-promtail
+    namespace: {{ monitor_namespace }}
+roleRef:
+  kind: ClusterRole
+  name: promtail-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: loki-promtail
+  namespace: {{ monitor_namespace }}
+  labels:
+    app: promtail
+spec:
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: promtail
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 50%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: promtail
+    spec:
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: "{{docker_registry_key}}"
+{% endif %}
+      serviceAccountName: loki-promtail
+      containers:
+        - name: promtail
+          # image: grafana/promtail:2.6.1
+          image: {{ deploy_repository_url }}/{{ deploy_public_category }}promtail:2.6.1
+          imagePullPolicy: IfNotPresent
+          args: 
+          - -config.file=/etc/promtail/promtail.yaml
+          - -client.url=http://loki:3100/loki/api/v1/push
+          env: 
+          - name: HOSTNAME
+            valueFrom: 
+              fieldRef: 
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          volumeMounts:
+          - mountPath: /etc/promtail
+            name: config
+          - mountPath: /run/promtail
+            name: run
+          - mountPath: /var/lib/docker/containers
+            name: docker
+            readOnly: true
+          - mountPath: /var/log/pods
+            name: pods
+            readOnly: true
+          ports:
+          - containerPort: 3101
+            name: http-metrics
+            protocol: TCP
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsGroup: 0
+            runAsUser: 0
+          readinessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /ready
+              port: http-metrics
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 2048Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+      volumes:
+        - name: config
+          configMap:
+            defaultMode: 420
+            name: loki-promtail
+        - name: run
+          hostPath:
+            path: /run/promtail
+            type: ""
+        - name: docker
+          hostPath:
+            path: /var/lib/docker/containers
+        - name: pods
+          hostPath:
+            path: /var/log/pods
+

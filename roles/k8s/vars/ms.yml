@@ -1,0 +1,159 @@
+
+app_service_type: ms
+docker_image_name: "{{ item }}"
+docker_build_service_type: ms
+
+k8s_configmap_enabled: false
+k8s_ingress_enabled: false
+k8s_service_enabled: true
+k8s_log_pvc_add: true
+k8s_pvc_replace_permissions: true
+
+# k8s_pod_readinessProbe_httpType: json
+
+##############################
+#vars
+
+ms_service_xms:           "{{ k8s_pod_resources_requests_memory }}"
+ms_service_xmx:           "{{ ((k8s_pod_resources_limits_memory |int) * 0.8) |int }}"
+
+ms_service_cms_opts: -XX:+UseConcMarkSweepGC
+    -XX:+ParallelRefProcEnabled
+    -XX:+ExplicitGCInvokesConcurrent
+
+ms_service_opts: -Duser.timezone={{ TZ | default('PRC') }}
+    -Xms{{ ms_service_xmx }}m
+    -Xmx{{ ms_service_xmx }}m
+    -Dfile.encoding=UTF-8
+    -XX:ActiveProcessorCount=1
+    -XX:+PrintGCDetails
+    -XX:+PrintGCDateStamps
+    -XX:+PrintPromotionFailure
+    -XX:+PrintGCApplicationStoppedTime
+    -XX:SurvivorRatio=8
+    -XX:MaxTenuringThreshold=15
+    -XX:-DisableExplicitGC
+    {% if ms_service_xmx >= 6400 %}{{ ms_service_cms_opts }}{% endif %}
+    -Djava.io.tmpdir=/var/tmp
+    -Dlog4j2.formatMsgNoLookups=true
+
+app_port: "{% if item == 'ms-eureka' %}8761{% else %}8080{% endif %}"
+
+defaultZone: "{%- if env == 'prod' -%}
+    http://ms-eureka-0.ms-eureka:8761/eureka/,http://ms-eureka-1.ms-eureka:8761/eureka/ 
+  {%- else -%}
+    http://ms-eureka-0.ms-eureka:8761/eureka/ 
+  {%- endif -%}"
+
+java_agent_opts: "-javaagent:/opt/java_agent/{{java_agent}}={{java_agent_port}}:/opt/java_agent/jmx_exporter.yml"
+
+start_app_opts: 
+  "{% if item == 'ms-eureka' %}
+  /usr/local/java/bin/java -Dserver.port={{ app_port }} {{ ms_service_opts }} 
+  -Xloggc:/var/log/{{ item }}/gc.$(hostname).log -Dlogging.file=/var/log/{{ item }}/$(hostname).log
+  -Deureka.instance.prefer-ip-address=false -Deureka.instance.hostname=$(hostname).{{ item }} 
+  -Deureka.environment={{env}} -Deureka.client.register-with-eureka=true
+  -Deureka.client.serviceUrl.defaultZone={{ defaultZone }} {{ java_agent_opts }} -jar /opt/app/{{ service_package }}
+  {% else %}
+  /usr/local/java/bin/java -Dserver.port={{ app_port }} {{ ms_service_opts }} 
+  -Xloggc:/var/log/{{ item }}/gc.$(hostname).log -Dlogging.file=/var/log/{{ item }}/$(hostname).log
+  -Dspring.profiles.active={{ env }}
+  -Deureka.instance.preferIpAddress=true
+  -Dserver.servlet.context-path={{ k8s_check_path }}
+  -Dspring.application.name={{ item }}
+  -Deureka.client.serviceUrl.defaultZone={{ defaultZone }} {{ java_agent_opts }} -jar /opt/app/{{ service_package }}
+  {% endif %}"
+
+# add server.servlet.context-path only for test
+##############################
+
+service_package: "{{ app_package[item] }}"
+docker_image_tag: "{{ app_version[item] }}"
+k8s_check_path: "{% if item in app_check_path %}{{ app_check_path[item] }}{% else %}{{ app_check_path.default }}{% endif %}"
+
+app_check_path:
+  default: /
+  ms-api1: /api1
+  ms-api2: /api2
+
+app_package:
+  ms-eureka:               ms-eureka.jar
+  ms-api1:                 ms-web.jar
+  ms-api2:                 ms-web.jar
+
+app_version:
+  ms-eureka: "{{ ms_eureka_version }}"
+  ms-api1: "{{ ms_api1_version }}"
+  ms-api2: "{{ ms_api2_version }}"
+
+
+##############################
+
+k8s_pod_resources_requests_cpu: "{% if env == 'prod' %}
+    {% if item in prod_pod_resources %}{{ prod_pod_resources[item].requests_cpu }}{% else %}{{ prod_pod_resources.default.requests_cpu }}{% endif %}
+  {%- else -%}
+    {% if item in pod_resources %}{{ pod_resources[item].requests_cpu }}{% else %}{{ pod_resources.default.requests_cpu }}{% endif %}
+  {%- endif -%}"
+
+k8s_pod_resources_requests_memory: "{% if env == 'prod' %}
+    {% if item in prod_pod_resources %}{{ prod_pod_resources[item].requests_memory }}
+  {%- else -%}
+    {{ prod_pod_resources.default.requests_memory }}{% endif %}{% else %}{% if item in pod_resources %}{{ pod_resources[item].requests_memory }}{% else %}{{ pod_resources.default.requests_memory }}{% endif %}
+  {%- endif -%}"
+
+k8s_pod_resources_limits_cpu:  "{% if env == 'prod' %}
+    {% if item in prod_pod_resources %}{{ prod_pod_resources[item].limits_cpu }}{% else %}{{ prod_pod_resources.default.limits_cpu }}{% endif %}
+  {%- else -%}
+    {% if item in pod_resources %}{{ pod_resources[item].limits_cpu }}{% else %}{{ pod_resources.default.limits_cpu }}{% endif %}
+  {%- endif -%}"
+
+k8s_pod_resources_limits_memory: "{%- if env == 'prod' -%}
+    {% if item in prod_pod_resources %}{{ prod_pod_resources[item].limits_memory }}{% else %}{{ prod_pod_resources.default.limits_memory }}{% endif %}
+  {%- else -%}
+    {% if item in pod_resources %}{{ pod_resources[item].limits_memory }}{% else %}{{ pod_resources.default.limits_memory }}{% endif %}
+  {%- endif -%}"
+
+#Pod数量默认1 | Pod defaults count 1
+k8s_pod_replicas: "{% if env == 'prod' %}{{ prod_k8s_replicas[item] |default('1') }}{% else %}{{ k8s_replicas[item] |default('1') }}{% endif %}"
+
+##############################
+#Pod数量 | Pod quantity
+
+k8s_replicas:
+  ms-eureka: 1
+  ms-api1: 2
+
+prod_k8s_replicas:
+  ms-eureka: 2
+
+##############################
+#资源限制 | Resource limits
+
+#default
+pod_resources:
+  default:
+    requests_cpu: 100m
+    requests_memory: 256
+    limits_cpu: 500m
+    limits_memory: 512
+  ms-eureka:
+    requests_cpu: 100m
+    requests_memory: 512
+    limits_cpu: 500m
+    limits_memory: 1024
+
+#prod
+prod_pod_resources:
+  default:
+    requests_cpu: 100m
+    requests_memory: 2000
+    limits_cpu: 1000m
+    limits_memory: 4000
+  ms-eureka:
+    requests_cpu: 100m
+    requests_memory: 512
+    limits_cpu: 1000m
+    limits_memory: 2048
+
+
+##############################

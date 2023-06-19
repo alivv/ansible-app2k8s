@@ -1,0 +1,81 @@
+---
+#aws efs
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ k8s_data_pvc.name }}
+  namespace: {{ namespace }}
+  labels:
+    pv: {{ k8s_data_pvc.name }}
+spec:
+  storageClassName: datapv
+  capacity:
+    storage: {{ k8s_data_pvc.resources_requests }}
+  accessModes: 
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: {{ k8s_data_pvc.fsid }}:{{ k8s_data_pvc.path }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ k8s_data_pvc.name }}
+  namespace: {{ namespace }}
+spec:
+  storageClassName: datapv
+  accessModes: 
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ k8s_data_pvc.resources_requests }}
+  selector:
+    matchLabels:
+      pv: {{ k8s_data_pvc.name }}
+
+
+
+
+---
+#aws efs
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ k8s_log_pvc.name }}
+  namespace: {{ namespace }}
+  labels:
+    pv: {{ k8s_log_pvc.name }}
+spec:
+  storageClassName: logpv
+  capacity:
+    storage: {{ k8s_log_pvc.resources_requests }}
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: {{ k8s_log_pvc.fsid }}:{{ k8s_log_pvc.path }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ k8s_log_pvc.name }}
+  namespace: {{ namespace }}
+spec:
+  storageClassName: logpv
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ k8s_log_pvc.resources_requests }}
+  selector:
+    matchLabels:
+      pv: {{ k8s_log_pvc.name }}
+
+# #doc
+# https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/efs-csi.html

@@ -1,0 +1,132 @@
+#prometheus-deploy.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: {{monitor_namespace}}
+  labels:
+    app: alertmanager
+spec:
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      # serviceAccountName: prometheus
+      securityContext:
+        runAsUser: 0
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: "{{docker_registry_key}}"
+{% endif %}
+
+      containers:
+      - name: alertmanager
+        # image: prom/alertmanager:v0.21.0
+        image: {{ deploy_repository_url }}/{{ deploy_public_category }}alertmanager:v0.24.0
+        imagePullPolicy: IfNotPresent
+        args:
+        - "--config.file=/etc/alertmanager/config.yml"
+        - "--storage.path=/alertmanager"
+        - "--web.external-url={{monitor_scheme}}://{{alertmanager_url}}"
+        ports:
+        - containerPort: 9093
+          name: http
+        volumeMounts:
+        - mountPath: "/alertmanager"
+          subPath: alertmanager
+          name: data
+        - mountPath: "/etc/alertmanager"
+          name: alertcfg
+        - mountPath: "/etc/localtime"
+          name: localtime
+          readOnly: true
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 200Mi
+        #就绪探测
+        readinessProbe:
+          initialDelaySeconds: 5
+          tcpSocket:
+            port: 9093
+        #存活探测
+        livenessProbe:
+          initialDelaySeconds: 10
+          tcpSocket:
+            port: 9093
+
+      - name: dingtalk
+        # image: alivv/dingtalk:latest
+        image: {{ deploy_repository_url }}/{{ deploy_public_category }}dingtalk:latest
+        imagePullPolicy: Always
+        args:
+        - "--config.file=/etc/dingtalk/config.yml"
+        - "--web.enable-lifecycle"
+        - "--log.format=json"
+        ports:
+        - containerPort: 8060
+          name: dingtalk
+        volumeMounts:
+        - mountPath: "/etc/dingtalk"
+          name: dingtalk-conf
+        - mountPath: "/etc/localtime"
+          name: localtime
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        #就绪探测
+        readinessProbe:
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          tcpSocket:
+            port: 8060
+        #存活探测
+        livenessProbe:
+          initialDelaySeconds: 10
+          #探测频率
+          periodSeconds: 10
+          tcpSocket:
+            port: 8060
+
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ k8s_monitor_pvc.name }}
+        #alertmanager#
+      - name: alertcfg
+        configMap:
+          name: alert-config
+      - name: dingtalk-conf
+        configMap:
+          name: dingtalk-config
+      - name: localtime
+        hostPath:
+          path: /etc/localtime
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: {{monitor_namespace}}
+  labels:
+    app: alertmanager
+spec:
+  selector:
+    app: alertmanager
+  ports:
+    - name: alert
+      port: 9093
+      targetPort: 9093

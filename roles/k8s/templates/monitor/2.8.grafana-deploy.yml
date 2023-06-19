@@ -1,0 +1,103 @@
+#grafana-deploy.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: {{monitor_namespace}}
+  labels:
+    app: grafana
+spec:
+  selector:
+    matchLabels:
+      app: grafana
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: "{{docker_registry_key}}"
+{% endif %}
+      containers:
+      - name: grafana
+        # image: grafana/grafana:7
+        image: {{ deploy_repository_url }}/{{ deploy_public_category }}grafana:7.5.10
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: grafana
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          value: admin
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          value: "{{ grafana_pwd|default('grafana') }}"
+        readinessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /api/health
+            port: 3000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 30
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/health
+            port: 3000
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 100m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /var/lib/grafana
+          subPath: grafana
+          name: storage
+      securityContext:
+        # fsGroup: 472
+        # runAsUser: 472
+        fsGroup: 0
+        runAsUser: 0
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: {{ k8s_monitor_pvc.name }}
+      #尽量与prometheus部署同节点
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:  #软策略
+          - weight: 10
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - prometheus
+              topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: {{monitor_namespace}}
+  labels:
+    app: grafana
+spec:
+  type: NodePort
+  ports:
+    - port: 3000
+  selector:
+    app: grafana

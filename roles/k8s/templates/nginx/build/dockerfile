@@ -1,0 +1,28 @@
+FROM registry.cn-shanghai.aliyuncs.com/elvin/nginx:1.18-alpine-vts
+#FROM {{ local_repository_url }}/{{ base_category }}{{ docker_build_base_image }}
+
+# {{ansible_date_time.date}}
+COPY dockerfile /etc/dockerfile/
+
+ENV SERVICE_NAME='{{ docker_image_name }}' \
+    ENV=/etc/profile \
+{% for web_item in docker_build_static_list %}
+    {{ web_item.name }}={{ web_item.version }} \
+{% endfor %}
+    service_version='{{ docker_image_tag }}'
+
+{# COPY nginx.conf /etc/nginx/ -#} 
+
+RUN mkdir -p /data ; cd /data ; \
+    echo "alias ll='ls -hl'" >>/etc/profile ; \
+{% for web_item in docker_build_static_list %}
+    #wget -q -O {{ web_item.name }}.tar.gz   {{ release_download_url }}/{{ web_item.name }}/{{ web_item.version }}/{{ web_item.name }}.tar.gz && \
+    #tar -zxf {{ web_item.name }}.tar.gz && rm -f {{ web_item.name }}.tar.gz && \
+    #test index.html 
+    mkdir -p /data/{{ web_item.name }} ; \
+    curl -so /data/{{ web_item.name }}/index.html  http://files.elvin.vip/html/DemoPage.html ; \
+{% endfor %}
+    chown -R nginx:nginx /data 
+
+# docker build --no-cache -t {{ local_repository_url }}/{{ local_repository_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile .
+

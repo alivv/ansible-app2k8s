@@ -1,0 +1,56 @@
+---
+
+{% if k8s_version|default(1.18) * 100 < 119 %}
+apiVersion: extensions/v1beta1
+{% else %}
+apiVersion: networking.k8s.io/v1
+{% endif %}
+kind: Ingress
+metadata:
+  name: {{ item }}
+  namespace: {{ namespace }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-connections: '100'
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+{% if app_domain_https == true %}
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt"
+{% else %}
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+{% endif %}
+    nginx.ingress.kubernetes.io/server-snippet: |
+
+        location ~ ^/.*/(\;|\.\;|\.\.\;) {
+            # return 403;
+            return https://$host;
+        }
+
+spec:
+{% if app_domain_https == true %}
+  tls:
+  - hosts:
+    - {{ app_domain_name }}
+    secretName: {{ app_domain_name }}-crt
+{% endif %}
+  rules:
+  - host: {{ app_domain_name }}
+    http:
+      paths:
+      # backend services
+      - path: /
+        pathType: Prefix
+        backend:
+{% if k8s_version|default(1.18) * 100 < 119 %}
+          serviceName: {{ item }}
+          servicePort: 8080
+{% else %}
+          service:
+            name: {{ item }}
+            port: 
+              number: 8080
+{% endif %}

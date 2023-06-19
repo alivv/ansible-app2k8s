@@ -1,0 +1,254 @@
+
+---
+
+##############################
+# base images
+
+
+docker_image_name: "{{ item | regex_replace('_.*', '') }}"
+docker_image_tag: "{{ item | regex_replace('.*_', '') }}"
+base_category: "base/"
+docker_build_base_dir: "/data/dockerfile/base"
+
+# name_tag
+base_list:
+- java_jdk-8u202-xenial
+- java_jdk-8u202-focal
+- java_jdk-17.0.5-focal
+- jetty_9.4.50-jdk8u202-xenial
+- jetty_9.4.50-jdk8u202-focal
+- jetty_9.4.50-jdk17.0.5
+- mule_3.7.0-jdk8u202-focal
+
+- maven_3.8.6-jdk-8u202-focal
+- maven_3.8.6-jdk-17.0.5-focal
+- gradle_7.6-jdk-17.0.5-focal
+
+- nginx_1.22-alpine-www
+- nginx_1.18-apline-vts
+# - consul_v1.0
+- ansible_2.7.18-focal
+
+
+#add files
+base_build_add_file:
+  nginx:
+  - nginx-dir.conf
+  mule:
+  - mule-wrapper.conf
+
+##############################
+# public images
+
+push__list:
+- bash
+- redis
+- redis_exporter
+# - rabbitmq
+# - zookeeper
+# - cassandra
+# - minio
+
+- prometheus
+- alertmanager
+- node-exporter
+- grafana
+- dingtalk
+- metrics-server
+- kube-state-metrics
+- prometheus-adapter
+
+- nginx-ingress-controller
+- kube-webhook-certgen
+
+# - phppgadmin
+- permission-manager
+- kubepi-server
+- dashboard
+- metrics-scraper
+
+- cert-manager-controller
+- cert-manager-webhook
+- cert-manager-cainjector
+
+- loki
+- promtail
+
+
+public_image:
+  bash:
+    url: ''
+    name: bash
+    tag: 5.1.4
+  redis:
+    url: ''
+    name: redis
+    tag: 5.0.14-alpine
+  redis_exporter:
+    url: 'oliver006/'
+    name: redis_exporter
+    tag: v1.46.0-alpine
+  rabbitmq:
+    url: ''
+    name: rabbitmq
+    tag: 3.8.22-management
+  zookeeper:
+    url: ''
+    name: zookeeper
+    tag: 3.4
+  cassandra:
+    url: ''
+    name: cassandra
+    tag: 2.1.22
+  minio:
+    url: 'bitnami/'
+    name: minio
+    tag: 2020
+
+  prometheus:
+    url: 'prom/'
+    name: prometheus
+    tag: v2.36.1
+  node-exporter:
+    url: 'prom/'
+    name: node-exporter
+    tag: v1.3.1
+  alertmanager:
+    url: 'prom/'
+    name: alertmanager
+    tag: v0.24.0
+  grafana:
+    url: 'grafana/'
+    name: grafana
+    tag: 7.5.10
+  dingtalk:
+    url: 'alivv/'
+    name: dingtalk
+    tag: latest
+  kube-state-metrics:
+    url: 'bitnami/'
+    name: kube-state-metrics
+    tag: 2.5.0
+  metrics-server:
+    url: 'bitnami/'
+    name: metrics-server
+    tag: 0.6.1
+  prometheus-adapter:
+    url: 'registry.cn-hangzhou.aliyuncs.com/elvin/'
+    name: prometheus-adapter
+    tag: v0.10.0
+
+  nginx-ingress-controller:
+    url: 'registry.cn-hangzhou.aliyuncs.com/google_containers/'
+    name: nginx-ingress-controller
+    tag: v1.3.0
+  kube-webhook-certgen:
+    url: 'registry.cn-hangzhou.aliyuncs.com/google_containers/'
+    name: kube-webhook-certgen
+    tag: v1.1.1
+
+  permission-manager:
+    url: 'quay.io/sighup/'
+    name: permission-manager
+    tag: v1.7.0-rc3
+  kubepi-server:
+    url: 'kubeoperator/'
+    name: kubepi-server
+    tag: v1.6.4
+  phppgadmin:
+    url: 'bitnami/'
+    name: phppgadmin
+    tag: 7
+
+  dashboard:
+    # url: 'kubernetesui/'
+    url: 'registry.cn-hangzhou.aliyuncs.com/google_containers/'
+    name: dashboard
+    tag: v2.5.1
+  metrics-scraper:
+    # url: 'kubernetesui/'
+    url: 'registry.cn-hangzhou.aliyuncs.com/google_containers/'
+    name: metrics-scraper
+    tag: v1.0.7
+
+  cert-manager-controller:
+    url: 'quay.io/jetstack/'
+    name: cert-manager-controller
+    tag: v1.9.2
+  cert-manager-webhook:
+    url: 'quay.io/jetstack/'
+    name: cert-manager-webhook
+    tag: v1.9.2
+  cert-manager-cainjector:
+    url: 'quay.io/jetstack/'
+    name: cert-manager-cainjector
+    tag: v1.9.2
+
+  loki:
+    url: 'grafana/'
+    name: loki
+    tag: 2.6.1
+  promtail:
+    url: 'grafana/'
+    name: promtail
+    tag: 2.6.1
+
+
+##############################
+#jvm 
+
+xms: "{% if (k8s_pod_resources_limits_memory is search('Mi')) %}{{ ((k8s_pod_resources_limits_memory |replace('Mi','') |int) * 0.6) |int }}{% else %}{{ ((k8s_pod_resources_limits_memory |replace('Gi','') |int) * 1024 * 0.6) |int }}{% endif %}"
+
+xmx: "{% if (k8s_pod_resources_limits_memory is search('Mi')) %}{{ ((k8s_pod_resources_limits_memory |replace('Mi','') |int) * 0.8) |int }}{% else %}{{ ((k8s_pod_resources_limits_memory |replace('Gi','') |int) * 1024 * 0.8) |int }}{% endif %}"
+
+xms3: "{% if (k8s_pod_resources_limits_memory is search('Mi')) %}{{ ((k8s_pod_resources_limits_memory |replace('Mi','') |int) * 0.3) |int }}{% else %}{{ ((k8s_pod_resources_limits_memory |replace('Gi','') |int) * 1024 * 0.3) |int }}{% endif %}"
+
+ZKxmx: "{% if zookeeper.limits_ram is search('Mi') %}{{ ((zookeeper.limits_ram |replace('Mi','') |int) * 0.8) |int }}{% else %}{{ ((zookeeper.limits_ram |replace('Gi','') |int) * 1024 * 0.8) |int }}{% endif %}"
+
+Redismx: "{% if (redis.limits_ram is search('Mi') %}{{ ((redis.limits_ram |replace('Mi','') |int) * 0.7) |int }}{% else %}{{ ((redis.limits_ram |replace('Gi','') |int) * 1024 * 0.7) |int }}{% endif %}"
+
+CAxmx: "{% if cassandra.limits_ram is search('Mi') %}{{ ((cassandra.limits_ram |replace('Mi','') |int) * 0.8) |int }}{% else %}{{ ((cassandra.limits_ram |replace('Gi','') |int) * 1024 * 0.8) |int }}{% endif %}"
+CAnew: "{% if cassandra.limits_ram is search('Mi') %}{{ ((cassandra.limits_ram |replace('Mi','') |int) * 0.2) |int }}{% else %}{{ ((cassandra.limits_ram |replace('Gi','') |int) * 1024 * 0.2) |int }}{% endif %}"
+
+
+##############################
+#ingress for app
+
+app_backend_services:
+  app-v1:
+  - /v1/
+  app-v2:
+  - /v2/
+
+
+###deny
+deniedAccessUrl:
+- /.
+- /..
+- \%2f..\%2f
+- \%2f..
+- \%2f../
+- \%2f.
+- /.\%2f
+- /..\%2f
+- /.git
+
+
+##############################
+
+ms_backends:
+  # ms-eureka
+  # - /
+  ms-api1:
+  - /api1/
+  ms-api2:
+  - /api2/
+
+
+##############################
+
+pod_not_hpa:
+- ms-eureka
+
+##############################
+

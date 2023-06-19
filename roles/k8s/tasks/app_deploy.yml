@@ -1,0 +1,135 @@
+---
+
+- name: "Create dir for {{ item }}"
+  file:
+    state:    directory
+    path:     "{{ deploy_yml_dir }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}"
+  delegate_to: "{{ deploy_yml_node }}"
+  tags: yml,config,deploy,redeploy
+
+
+# Configmap
+- name: "Delete configmap for {{ item }}"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} delete -f {{ deploy_yml_url }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.configmap.yml
+  delegate_to: "{{ kubectl_node }}"
+  when: k8s_configmap_enabled == true
+  ignore_errors: yes
+  tags: never,reconfig,redeploy,config-rm,rm
+
+- name: "Copy configmap for {{ item }}"
+  template:
+    src: "{{ docker_build_service_type }}/configmap/{{ docker_image_name }}.yml"
+    dest: "{{ deploy_yml_dir }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.configmap.yml"
+  delegate_to: "{{ deploy_yml_node }}"
+  when: k8s_configmap_enabled == true
+  tags: yml,config,deploy,redeploy,reconfig
+
+- name: "Create configmap for {{ item }}"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} apply -f {{ deploy_yml_url }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.configmap.yml
+  delegate_to: "{{ kubectl_node }}"
+  when: k8s_configmap_enabled == true
+  tags: config,deploy,redeploy,reconfig
+
+
+# Service
+- name: "Delete services for {{ item }}"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} delete -f {{ deploy_yml_url }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.service.yml
+  delegate_to: "{{ kubectl_node }}"
+  when: k8s_service_enabled == true
+  ignore_errors: yes
+  tags: never,reconfig,redeploy,config-rm,rm
+
+- name: "Copy service.yml for {{ item }}"
+  template:
+    src: "{{ docker_build_service_type }}/service.yml"
+    dest: "{{ deploy_yml_dir }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.service.yml"
+  delegate_to: "{{ deploy_yml_node }}"
+  when: k8s_service_enabled == true
+  tags: yml,config,deploy,redeploy,reconfig
+
+- name: "Create services for {{ item }}"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} apply -f {{ deploy_yml_url }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.service.yml
+  delegate_to: "{{ kubectl_node }}"
+  when: k8s_service_enabled == true
+  tags: config,deploy,redeploy,reconfig
+
+
+# Deployment
+- name: "Delete pods for {{ item }}"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} delete -f {{ deploy_yml_url }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.deploy.yml
+  delegate_to: "{{ kubectl_node }}"
+  ignore_errors: yes
+  tags: never,redeploy,deploy-rm,rm
+
+- name: "Copy deployment.yml for {{ item }}"
+  template:
+    src: "{{ docker_build_service_type }}/deployment.yml"
+    dest: "{{ deploy_yml_dir }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.deploy.yml"
+  delegate_to: "{{ deploy_yml_node }}"
+  register: copy_yml
+  tags: yml,config,deploy,redeploy,reconfig
+
+- name: "Deploy pods for {{ item }}"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} apply -f {{ deploy_yml_url }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.deploy.yml
+  delegate_to: "{{ kubectl_node }}"
+  tags: deploy,redeploy,reconfig
+
+
+# ingress
+- name: "Delete ingress for {{ item }}"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} delete -f {{ deploy_yml_url }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.ingress.yml
+  delegate_to: "{{ kubectl_node }}"
+  when: k8s_ingress_enabled == true
+  ignore_errors: yes
+  tags: never,redeploy,config-rm,ingres-app-rm,rm
+
+- name: "Copy ingress.yml for {{ item }}"
+  template:
+    src: "{{ docker_build_service_type }}/ingress.yml"
+    dest: "{{ deploy_yml_dir }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.ingress.yml"
+  delegate_to: "{{ deploy_yml_node }}"
+  when: k8s_ingress_enabled == true
+  tags: yml,ingress-app,config,deploy,redeploy,reconfig
+
+- name: "Create ingress for {{ item }}"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} apply -f {{ deploy_yml_url }}/{{ namespace }}/{{ item }}/{{ app_tag_dir }}{{ item }}.ingress.yml
+  delegate_to: "{{ kubectl_node }}"
+  when: k8s_ingress_enabled == true
+  tags: config,ingress-app,deploy,redeploy,reconfig
+
+
+# latest dir
+- name: "create latest link for {{ item }}"
+  file:
+    state:  link
+    dest:   "{{ deploy_yml_dir }}/{{ namespace }}/{{ item }}/latest"
+    src:    "{{ app_tag_dir }}"
+  delegate_to: "{{ deploy_yml_node }}"
+  when: app_tag_dir != ''
+  tags: yml,config,deploy,redeploy
+
+# restart when update config
+- name: "Restart deploy for {{ item }}"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} rollout restart deploy -n {{ namespace }} {{ item }}
+  delegate_to: "{{ kubectl_node }}"
+  when: copy_yml is not defined or
+        copy_yml is not changed
+  tags: never,restart,reconfig

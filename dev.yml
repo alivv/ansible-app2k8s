@@ -1,0 +1,77 @@
+---
+#test
+
+
+#add hosts for tests
+- hosts: all
+  gather_facts: yes
+  tasks:
+  - name: add hosts
+    lineinfile:
+      path: /etc/hosts
+      create: yes
+      line: "{{ item }}"
+    with_items:
+    - '{{ local_repository_ip }}    {{ local_repository_url }}'
+    tags: hosts,hosts-registry
+
+- hosts: docker-build
+  tasks:
+  - name: add hosts
+    delegate_to: localhost
+    run_once: yes
+    lineinfile:
+      path: /etc/hosts
+      create: yes
+      line: "{{ item }}"
+    with_items:
+    - '{{ local_repository_ip }}    {{ local_repository_url }}'
+    # - '{{ hostvars[groups['k8s-node'][0]]['ansible_default_ipv4']['address'] }}    {{ k8s_ingress_app_domain_name }} {{ dashboard_url }} {{kubepi_url}} {{k8sAdmin_url}} {{prometheus_url}} {{alertmanager_url}} {{grafana_url}} app2k8s-web.elvin.vip'
+    # - "{{ hostvars[groups['k8s-node'][0]]['ansible_default_ipv4']['address'] }}    {{ k8s_ingress_app_domain_name }} {{ dashboard_url }} {{kubepi_url}} {{k8sAdmin_url}} {{prometheus_url}} {{alertmanager_url}} {{grafana_url}} app2k8s-web.elvin.vip"
+    tags: hosts,localhost,hosts-local-1
+
+- hosts: docker-build
+  tasks:
+  - name: add hosts
+    delegate_to: localhost
+    run_once: yes
+    shell: |
+      #if [ $(grep app2k8s /etc/hosts |wc -l) -eq 0 ];then#
+        echo "{{ local_repository_ip }}    {{ local_repository_url }}" >>/etc/hosts
+        echo "{{ hostvars[groups['k8s-node'][0]]['ansible_default_ipv4']['address'] }}    {{ k8s_ingress_app_domain_name }} {{ dashboard_url }} {{kubepi_url}} {{k8sAdmin_url}} {{prometheus_url}} {{alertmanager_url}} {{grafana_url}} app2k8s-web.elvin.vip" >>/etc/hosts
+      #fi
+    tags: hosts,localhost,hosts-local
+
+- hosts: docker-build
+  tasks:
+  - name: print url
+    tags: never,url
+    debug:
+      msg:
+
+        - "docker-registry-web({{registry_username}}:{{registry_password}})   http://{{registry_domain_name}}"
+        - "yml-share-url      http://{{registry_domain_name}}:{{deploy_yml_port}}"
+        - "yml-share-url      http://{{deploy_yml_node}}:{{deploy_yml_port}}"
+
+        - ""
+        - "kubernetes-dashboard        https://{{dashboard_url}}"
+        - "kubepi(admin:kubepi)        https://{{kubepi_url}}"
+        - "permission-manager(admin:{{k8sAdmin_pwd}})   https://{{k8sAdmin_url}}"
+
+        - ""
+        - "prometheus     https://{{prometheus_url}}"
+        - "alertmanager   https://{{alertmanager_url}}"
+        - "grafana(admin:{{ grafana_pwd|default('grafana') }})   https://{{grafana_url}}"
+
+        - ""
+        - "https://{{k8s_ingress_app_domain_name}}"
+        - "https://{{k8s_ingress_app_domain_name}}/v1/"
+        - "https://{{k8s_ingress_app_domain_name}}/v2/"
+        - "https://{{k8s_ingress_app_domain_name}}/api1/"
+        - "https://{{k8s_ingress_app_domain_name}}/api2/"
+
+        - ""
+        - "https://app2k8s-web.elvin.vip"
+        - "https://app2k8s-web.elvin.vip/v1/"
+        - "https://app2k8s-web.elvin.vip/v2/"
+

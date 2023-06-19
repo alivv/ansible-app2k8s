@@ -1,0 +1,97 @@
+---
+
+#readme
+- hosts: localhost
+  tasks:
+  - name: msg
+    tags: debug,v,h,other
+    debug:
+      msg:
+        - "tags:"
+        - "1. base-build    build base image, more tags: baselist,base-push"
+        - "2. push          push public image to registry, more tags: pushlist"
+        - "3. init          init k8s env, more tags: initlist,init-yml,init-rm"
+        - "4. monitor       prometheus for k8s, more tags: monitor-yml,monitor-rm"
+        - "5. build         build images, more tags: rmi,build,dockerfile,upload"
+        - "6. deploy        deploy apps to k8s, more tags: yml,config,rm,restart"
+        - "7. ingress       ingress for app, more tags: ingress-yml,ingress-rm"
+        - "8. other         h: show help document, list: show app list"
+        - "                 kubectl: install kubectl, more tags: kubeconfig"
+        - ""
+        - "vars:"
+        - "1. baselist      usage: -t base-build -e baselist=all"
+        - "2. pushlist      usage: -t push -e pushlist=redis"
+        - "3. initlist      usage: -t init -e initlist=1.1.namespace.yml"
+        - "4. applist       usage: -t deploy -e applist=app-v1 "
+        - ""
+        - "example: "
+        - "#1 Push all public images to repository"
+        - " ansible-playbook k8s.yml -i env/dev -D -t push -e pushlist=all "
+
+        - "#2 init k8s dev env"
+        - " ansible-playbook k8s.yml -i env/dev -D -t init -e initlist=all "
+
+        - '#3 Build and deploy the app-v1 to k8s dev env'
+        - " ansible-playbook k8s.yml -i env/dev -D -t rmi,build,deploy -e applist=app-v1 "
+
+        - "#4 Create yml files for more than one app"
+        - " ansible-playbook k8s.yml -i env/dev -D -t yml -e '{applist: [app-v1,app-v2]}' "
+
+  - name: alert
+    fail:
+      msg: "must add tags , -t h #help"
+
+
+
+- hosts: docker-build
+  # run_once: yes
+  tasks:
+
+  #show list
+  - name: list
+    delegate_to: localhost
+    debug:
+      msg:
+
+        - "baselist: #{{ base_list |length }}"
+        - "{{ base_list }}"
+
+        - "pushlist: #{{ push__list |length }}"
+        - "{{ push__list }}"
+
+        - "initlist: #{{ init_list |length }}"
+        - "{{ init_list }}"
+        
+        - "applist: #{{ app_list |length }}"
+        - "{{ app_list }}"
+
+        - "ingress: #{{ ingress_rules |length }}"
+        - "{{ ingress_rules }}"
+ 
+    tags: never,list
+
+  #build and deploy
+  roles:
+  - k8s
+
+
+# # k8s node init
+# - hosts: k8s
+#   # gather_facts: false
+#   tasks:
+#     #nfs client
+#   - block:
+#     - name: Install package 
+#       package:
+#         name:
+#           - nfs-common
+#         state: present
+#       when: ansible_os_family == 'Debian'
+#     - name: Install package 
+#       package:
+#         name:
+#           - nfs-utils
+#         state: present
+#       when: ansible_os_family == 'RedHat'
+#     tags: never,nfs
+

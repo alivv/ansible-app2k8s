@@ -1,0 +1,63 @@
+---
+
+- name: debug
+  debug:
+    msg:
+      - "monitorlist: #{{ monitorlist |length }}"
+      - "{{ monitorlist | sort(reverse=false) }}"
+  delegate_to: localhost
+  tags: never,monitorlist
+
+#monitor
+- name: "create dir for monitor"
+  file:
+    state:    directory
+    path:     "{{ deploy_yml_dir }}/monitor"
+  delegate_to: "{{ deploy_yml_node }}"
+  tags: monitor,monitor-yml
+
+#delete
+- name: "delete monitor"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} delete -f {{ deploy_yml_url }}/monitor/{{ item }} 
+  delegate_to: "{{ kubectl_node }}"
+  ignore_errors: yes
+  with_items: "{{ monitorlist | sort(reverse=true) }}"
+  tags: never,monitor-rm
+
+- name: "copy yml for monitor"
+  template:
+    src: "monitor/{{ item }}"
+    dest: "{{ deploy_yml_dir }}/monitor/{{ item }}"
+  delegate_to: "{{ kubectl_node }}"
+  with_items: "{{ monitorlist }}"
+  register: copy_yml
+  tags: monitor,monitor-yml,monitor-config
+
+- name: "apply monitor"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} apply -f {{ deploy_yml_url }}/monitor/{{ item }}
+  delegate_to: "{{ kubectl_node }}"
+  with_items: "{{ monitorlist }}"
+  tags: monitor,monitor-run,monitor-config
+
+- name: "timed wait for reload"
+  pause: seconds=61
+  when: copy_yml is changed
+  tags: never,monitor-config
+
+#reload when update config
+- name: "reload prometheus"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    pod_name=$({{kubectl}} get pod -n {{monitor_namespace}} |awk '/prometheus/{print $1}')
+    {{kubectl}} exec -it -n {{monitor_namespace}} ${pod_name} -c prometheus   -- sh -c 'kill -HUP 1'
+    pod_alert=$({{kubectl}} get pod -n {{monitor_namespace}} |awk '/alertmanager/{print $1}')
+    {{kubectl}} exec -it -n {{monitor_namespace}} ${pod_alert} -c alertmanager -- sh -c 'kill -HUP 1'
+    {{kubectl}} exec -it -n {{monitor_namespace}} ${pod_alert} -c dingtalk     -- sh -c 'kill -HUP 1'
+  delegate_to: "{{ kubectl_node }}"
+  ignore_errors: yes
+  # when: copy_yml is changed
+  tags: monitor-config,monitor-reload

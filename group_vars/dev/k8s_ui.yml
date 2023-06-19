@@ -1,0 +1,51 @@
+##############################
+# monitor
+
+#url
+dashboard_url: k8s-dev-dashboard.elvin.vip
+kubepi_url: k8s-dev-kubepi.elvin.vip
+
+k8sAdmin_url: k8s-dev-admin.elvin.vip
+k8sAdmin_pwd: k8sefOa6RmltDwqelvin
+
+prometheus_url:   k8s-dev-prometheus.elvin.vip
+alertmanager_url: k8s-dev-alertmanager.elvin.vip
+grafana_url:      k8s-dev-grafana.elvin.vip
+grafana_pwd: grafana
+
+# #create basic-auth , user admin , passworld blog.elvin.vip
+# docker run --rm alivv/htpasswd admin blog.elvin.vip >htpasswd
+# cat htpasswd |base64 -w0
+# monitor_pwd: YWRtaW46JDJ5JDA1JG15SVN1TjhCNHA0U3NUZmNZVHhvL09oSzV2NTJsTXNOdS55STR1c1QyREZ1UjRweUNrY0ZxCgo=
+monitor_pwd: ''
+
+monitor_scheme: https
+monitor_namespace: monitor
+prome_data_keep_time: 15d
+https_cert_base_name: https-crt
+
+notice_dingtalk_token: f75365d02563271b0cd0542e43212d102bef987d3fbd4d82bc7f84df6705474
+
+monitorlist:
+  - 1.1.namespace.yml
+  - 1.2.node-exporter.yml
+  - 1.3.kube-state-metrics.yml
+  - 1.4.metrics-server.yml
+  - 2.1.monitor-volume.yml
+  - 2.2.prometheus-rbac.yml
+  - 2.3.prometheus-config.yml
+  - 2.4.alertmanager-config.yml
+  - 2.5.alert-dingtalk-config.yml
+  - 2.6.alertmanager-deploy.yml
+  - 2.7.prometheus-deploy.yml
+  - 2.8.grafana-deploy.yml
+  - 3.1.monitor-ingress.yml
+
+  - 3.2.prometheus-adapter.yml
+
+  - 4.1.loki-config.yml
+  - 4.2.loki-deploy.yml
+  - 4.3.loki-promtail-config.yml
+  - 4.4.loki-promtail-deploy.yml
+
+##############################

@@ -1,0 +1,46 @@
+FROM {{ local_repository_url }}/{{ base_category }}java:jdk-8u202-focal
+
+# {{ansible_date_time.date}}
+COPY dockerfile.{{ item }} /etc/dockerfile/
+
+ENV MULE_VERSION=3.7.0
+ENV MULE_HOME=/opt/mule
+ENV PATH=$MULE_HOME/bin:$PATH
+
+RUN set -xe ;\
+    #
+    # Fetch mule release
+    mkdir -p $MULE_HOME ; \
+    cd $MULE_HOME ; \
+    curl -SL -o /tmp/mule.tar.gz http://192.168.3.112:81/binaries/mule/mule-standalone-${MULE_VERSION}.tar.gz  ; \
+    #
+    # Unpack mule
+    tar -xf /tmp/mule.tar.gz --strip-components=1 ; \
+    #
+    # Add user
+    groupadd --gid 999 mule  && \
+    useradd --uid 999 --gid mule --shell /bin/bash --create-home mule && \
+    mkdir -p /home/mule ; \
+    chown -R mule:mule /home/mule "$MULE_HOME" ; \
+    #
+    # Clean
+    rm -rf /var/cache/apt/* /var/lib/apt/lists/* /tmp/* /var/log/*
+
+
+WORKDIR  $MULE_HOME
+# COPY docker-entrypoint.sh /
+# RUN chmod +x /docker-entrypoint.sh;
+
+USER mule
+EXPOSE 8080
+# ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["mule","console"]
+
+
+# {{ repository_local_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}
+# docker build --no-cache -t {{ repository_local_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ docker_image_name }}_{{ docker_image_tag }} .
+
+{# #
+# https://repository.mulesoft.org/nexus/content/repositories/releases/org/mule/distributions/mule-standalone/3.7.0/mule-standalone-3.7.0.tar.gz
+
+#}

@@ -1,0 +1,53 @@
+---
+
+docker_image_name: mule-test
+docker_image_tag: "{{ mule_test_service_version }}"
+
+docker_build_service_type: mule
+docker_build_base_image: mule
+
+k8s_pod_name: mule-test
+k8s_pod_replicas: 1
+k8s_pod_resources_requests_cpu: 100m
+k8s_pod_resources_requests_memory: 1Gi
+k8s_pod_resources_limits_cpu: 600m
+k8s_pod_resources_limits_memory: 2Gi
+# k8s_pod_readinessProbe_type: tcpSocket
+# k8s_pod_readinessProbe_type: shell
+k8s_pod_readinessProbe_type: nocheck
+
+# k8s_pod_readinessProbe_initialDelaySeconds: 100
+k8s_pod_readinessProbe_periodSeconds: 10
+k8s_pod_readinessProbe_failureThreshold: 3
+k8s_pod_livenessProbe_initialDelaySeconds: 30
+
+k8s_configmap_enabled: true
+k8s_secret_enabled: false
+k8s_service_enabled: true
+k8s_ingress_enabled: false
+k8s_mount_log_file_storage: true
+
+k8s_jvm_active_processor_count: 1
+k8s_jvm_use_large_gc: false
+
+mule_app_info:    ""
+mule_domain_info: ""
+
+# mule_app_info:    "{{ mule_test_info }}"
+# mule_domain_info: "{{ mule_test_domain_info }}"
+
+health_check_info:
+  - name: app-orderimport
+    url: "http://127.0.0.1:8080/ws/app-orderimport/dependencyCheck"
+  - name: app-ecin
+    url: "http://127.0.0.1:8080/ws/app-ecin/dependencyCheck"
+
+#for test
+mule_test_service_version: "v1.1"
+
+mule_test_info:
+  - test-orderimport
+  - test-ecin
+
+mule_test_domain_info:
+  - test-domain

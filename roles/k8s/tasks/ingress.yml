@@ -1,0 +1,45 @@
+---
+
+- name: init list
+  debug:
+    msg:
+        - "ingress: #{{ ingress |length }}"
+        - "{{ ingress }}"
+  delegate_to: localhost
+  tags: never,ingresslist
+
+- name: "create dir for ingress"
+  file:
+    state:    directory
+    path:     "{{ deploy_yml_dir }}/{{ namespace }}/ingress"
+  delegate_to: "{{ deploy_yml_node }}"
+  tags: ingress,ingress-yml
+
+- name: "Delete for ingress"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} delete -f {{ deploy_yml_url }}/{{ namespace }}/ingress/{{ item }} |true
+  delegate_to: "{{ kubectl_node }}"
+  # with_items: "{{ ingress_rules }}"
+  with_items: "{% if ingress == 'all' %}{{ ingress_rules }}{% else %}{{ ingress }}{% endif %}"
+  tags: never,ingress-rm
+
+- name: "copy yml for ingress"
+  template:
+    src: "ingress/{{ item }}"
+    dest: "{{ deploy_yml_dir }}/{{ namespace }}/ingress/{{ item }}"
+  delegate_to: "{{ deploy_yml_node }}"
+  register: copy_yml
+  # with_items: "{{ ingress_rules }}"
+  with_items: "{% if ingress == 'all' %}{{ ingress_rules }}{% else %}{{ ingress }}{% endif %}"
+  tags: ingress,ingress-yml
+
+- name: "deploy for ingress"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} apply -f {{ deploy_yml_url }}/{{ namespace }}/ingress/{{ item }}
+  delegate_to: "{{ kubectl_node }}"
+  # with_items: "{{ ingress_rules }}"
+  with_items: "{% if ingress == 'all' %}{{ ingress_rules }}{% else %}{{ ingress }}{% endif %}"
+  tags: ingress,ingress_rules
+

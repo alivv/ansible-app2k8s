@@ -1,0 +1,44 @@
+#1.1.namespace.yaml
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ monitor_namespace }}
+
+{% if docker_registry_key|default('') != '' %}
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ docker_registry_key }}
+  namespace: kube-system
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: {{ docker_registry_config_json }}
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ docker_registry_key }}
+  namespace: {{ monitor_namespace }}
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: {{ docker_registry_config_json }}
+
+{% endif %}
+
+{% if monitor_scheme == 'https' and https_cert_base_name == 'https-crt' %}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: https-crt
+  namespace: {{ monitor_namespace }}
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ https_crt }}
+  tls.key: {{ https_key }}
+{% endif %}

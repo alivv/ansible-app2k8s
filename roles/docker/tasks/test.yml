@@ -1,0 +1,13 @@
+---
+#for test
+
+- name: add hosts
+  lineinfile:
+   path: /tmp/hosts
+   create: yes
+   line: "{{ item }}"
+  with_items:
+   - '{{ local_repository_ip }}    {{ local_repository_url }}'
+  tags: never,hosts
+
+

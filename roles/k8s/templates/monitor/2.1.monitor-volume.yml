@@ -1,0 +1,60 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ k8s_monitor_pvc.name }}
+spec:
+  storageClassName: monitor-pv
+  capacity:
+    storage: {{ k8s_monitor_pvc.resources_requests }}
+  accessModes:
+  - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+{% if env == 'dev' %}
+  nfs:
+    server: {{ k8s_monitor_pvc.server }}
+    path: {{ k8s_monitor_pvc.path }}
+
+{% elif k8s_env == 'alicloud' %}
+  csi:
+    driver: nasplugin.csi.alibabacloud.com
+    volumeHandle: {{ k8s_monitor_pvc.name }}
+    volumeAttributes:
+      server: {{ k8s_monitor_pvc.server }}
+      path: {{  k8s_monitor_pvc.path }}
+  mountOptions:
+  - nolock,tcp,noresvport
+  - vers=3
+
+{% elif k8s_env == 'tencent' %}
+
+  csi:
+    driver: com.tencent.cloud.csi.cfs
+    volumeAttributes:
+      fsid: {{ k8s_monitor_pvc.fsid }}
+      host: {{ k8s_monitor_pvc.server }}
+      path: {{ k8s_monitor_pvc.path }}
+      vers: "3"
+    volumeHandle: cfs
+  volumeMode: Filesystem
+
+{% elif k8s_env == 'aws' %}
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: {{ k8s_monitor_pvc.fsid }}:{{ k8s_monitor_pvc.path }}
+
+{% endif %}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ k8s_monitor_pvc.name }}
+  namespace: {{monitor_namespace}}
+spec:
+  storageClassName: monitor-pv
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ k8s_monitor_pvc.resources_requests }}

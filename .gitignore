@@ -1,0 +1,7 @@
+*.swp
+*.bak
+*.log
+*.retry
+.DS_Store
+vault.pass
+#ansible.cfg

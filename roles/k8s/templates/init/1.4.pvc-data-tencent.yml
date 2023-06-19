@@ -1,0 +1,94 @@
+---
+#tencent cfs
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ k8s_data_pvc.name }}
+  namespace: {{ namespace }}
+  labels:
+    pv: {{ k8s_data_pvc.name }}
+spec:
+  storageClassName: datapv
+  capacity:
+    storage: {{ k8s_data_pvc.resources_requests }}
+  accessModes: 
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: com.tencent.cloud.csi.cfs
+    volumeAttributes:
+      fsid: {{ k8s_data_pvc.fsid }}
+      host: {{ k8s_data_pvc.server }}
+      path: {{ k8s_data_pvc.path }}
+      vers: "3"
+    volumeHandle: cfs
+  volumeMode: Filesystem
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ k8s_data_pvc.name }}
+  namespace: {{ namespace }}
+spec:
+  storageClassName: datapv
+  accessModes: 
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ k8s_data_pvc.resources_requests }}
+  selector:
+    matchLabels:
+      pv: {{ k8s_data_pvc.name }}
+
+
+
+
+---
+#tencent cfs
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ k8s_log_pvc.name }}
+  namespace: {{ namespace }}
+  labels:
+    pv: {{ k8s_log_pvc.name }}
+spec:
+  storageClassName: logpv
+  capacity:
+    storage: {{ k8s_log_pvc.resources_requests }}
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: com.tencent.cloud.csi.cfs
+    volumeAttributes:
+      fsid: {{ k8s_data_pvc.fsid }}
+      host: {{ k8s_data_pvc.server }}
+      path: {{ k8s_data_pvc.path }}
+      vers: "3"
+    volumeHandle: cfs
+  volumeMode: Filesystem
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ k8s_log_pvc.name }}
+  namespace: {{ namespace }}
+spec:
+  storageClassName: logpv
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ k8s_log_pvc.resources_requests }}
+  selector:
+    matchLabels:
+      pv: {{ k8s_log_pvc.name }}
+
+
+#doc
+#https://cloud.tencent.com/document/product/457/44236

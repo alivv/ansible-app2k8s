@@ -1,0 +1,81 @@
+---
+
+- name: debug
+  debug:
+    msg:
+      - "install docker-ce {{ docker_version |default('') }}"
+      - "-t docker           #default,install docker"
+      - "-t config           #docker config"
+      - "-t py               #docker-py for ansible"
+      - "-t compose          #docker-compose"
+      - "-t registry         #docker-registry"
+      - "-t version          #get docker version"
+      - "-t clear | job      #clear docker images"
+      - "-t h | v            #Print help document"
+  changed_when: false
+  run_once: yes
+  delegate_to: localhost
+  tags: never,debug,h,v
+
+- name: check docker version 
+  shell: |
+    docker version |grep Version |awk 'NR==2{print $NF}'
+  register: get_docker_version
+  changed_when: false
+  tags: version,docker
+
+- name: print docker version 
+  debug:
+    msg:
+      - "docker  {{ get_docker_version.stdout }}"
+      - "{{ ansible_hostname }}  {{ ansible_default_ipv4.address }}"
+  tags: never,version
+
+- name: install docker
+  include: "docker-{{ ansible_os_family }}.yml"
+  tags: docker
+
+- name: docker-compose 
+  include: docker-compose.yml
+  tags: never,compose
+
+- name: docker-py
+  include_tasks: docker-py.yml
+  tags: py,build-init
+
+- name: "create dir for registry"
+  file:
+    state:    directory
+    path:     "/etc/docker"
+  tags: config,docker
+
+- name: Docker config 
+  template:
+    src: daemon.json
+    dest: /etc/docker/daemon.json
+  notify: restart docker
+  tags: config,docker
+
+- name: docker registry
+  include_tasks: registry.yml
+  # when: inventory_hostname in groups['registry']
+  tags: never,registry,registry-v,registry-cli,registry-auth
+  # ignore_errors: true
+
+- name: nginx-www for yml-node
+  include_tasks: nginx-www.yml
+  # when: inventory_hostname in groups['yml-node']
+  tags: never,yml-node
+  # ignore_errors: true
+
+- name: create cronjob for clear docker images
+  cron:
+    name: "clear docker images"
+    minute: "0"
+    hour: "0"
+    job: |
+      docker rmi -f $(docker images |egrep "<none>" |awk '{print $3}' |sort |uniq)
+  tags: never,rmi,clear,job
+
+- name: "test"
+  include: test.yml

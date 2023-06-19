@@ -1,0 +1,23 @@
+FROM {{ local_repository_url }}/{{ base_category }}java:jdk-17.0.5-focal
+
+# {{ansible_date_time.date}}
+COPY dockerfile.{{ item }} /etc/dockerfile/
+
+ENV M2_VERSION=3.8.6
+ENV M2_HOME=/opt/maven3
+ENV PATH=$PATH:$JAVA_HOME/bin:$M2_HOME/bin
+
+RUN set -xe ; \
+    # maven
+    cd /opt ; \
+    curl -kLs -m 8 -o maven-bin.tar.gz https://dlcdn.apache.org/maven/maven-3/${M2_VERSION}/binaries/apache-maven-${M2_VERSION}-bin.tar.gz && \
+    tar xf maven-bin.tar.gz && \
+    ln -nfs /opt/apache-maven-${M2_VERSION} /opt/maven3  && \
+    rm -f maven-bin.tar.gz && \
+    mvn -v
+
+# {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}
+# docker build --no-cache -t {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ docker_image_name }}_{{ docker_image_tag }} .
+
+#https://maven.apache.org/download.cgi
+#https://dlcdn.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz

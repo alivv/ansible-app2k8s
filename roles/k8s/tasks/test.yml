@@ -1,0 +1,12 @@
+---
+#for test
+
+
+- name: print vers for test
+  debug:
+    msg:
+      - "{{ k8s_version }}"
+      - "{{ k8s_version|default(1.18) * 100 }}"
+  when: k8s_version is version("1.22.17",">=")
+  tags: never,test
+

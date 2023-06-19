@@ -1,0 +1,23 @@
+
+FROM nginx:1.22-alpine
+
+# {{ansible_date_time.date}}
+COPY dockerfile.{{ item }} /etc/dockerfile/
+
+COPY nginx-dir.conf /etc/nginx/conf.d/default.conf
+
+RUN set -x  && \
+    # source
+    sed -i 's/dl.*org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+    mkdir -p /data/www ; \
+    #get config
+    # wget -q -O /etc/nginx/conf.d/default.conf http://files.elvin.vip/conf/nginx-www.conf
+    date
+
+WORKDIR /data/www
+
+# CMD ["nginx", "-g", "daemon off;"]
+
+#dockerfile.{{ item }}
+# docker build --no-cache -t {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ item }} .
+# docker push {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}

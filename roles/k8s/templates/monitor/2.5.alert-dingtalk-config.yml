@@ -1,0 +1,62 @@
+#alert-dingtalk-config.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dingtalk-config
+  namespace: {{monitor_namespace}}
+data:
+
+  config.yml: |
+    #dingtalk
+    timeout: 5s
+    templates:
+    - /etc/dingtalk/*.tmpl
+    targets:
+      web1:
+        url: https://oapi.dingtalk.com/robot/send?access_token={{notice_dingtalk_token}}
+
+{%raw%}
+
+  dingtalk.tmpl: |
+
+    {{/* dingtalk template By Elvin */}}
+
+    {{ define "elvin.title" }}
+    {{- if gt (len .Alerts.Firing) 0 -}}{{ range .Alerts }}
+    [警报]{{ .Labels.instance }}   
+    {{ end }}{{ end -}}
+    {{- if gt (len .Alerts.Resolved) 0 -}}{{ range .Alerts }}
+    [恢复]{{ .Labels.instance }}   
+    {{ end }}{{ end -}}
+    {{- end }}
+
+    {{ define "elvin.tz.text" }}
+    {{- if gt (len .Alerts.Firing) 0 -}}
+    {{ range .Alerts }}
+    **[@警报]({{ .GeneratorURL }})**  
+    实例: {{ .Labels.instance }}  
+    信息: {{ .Annotations.summary }}  
+    详情: {{ .Annotations.description }}  
+    时间: {{ .StartsAt.Local.Format "2006-01-02 15:04:05" }}  
+    {{ end }}
+    *[Alertmanager]({{ .ExternalURL }}/#/alerts?receiver={{ .Receiver }})*
+    {{ end -}}
+    {{- if gt (len .Alerts.Resolved) 0 -}}{{ range .Alerts }}
+    **@恢复**  
+    实例: {{ .Labels.instance }}  
+    信息: {{ .Annotations.summary }}  
+    时间: {{ .StartsAt.Local.Format "2006-01-02 15:04:05" }}  
+    恢复: {{ .EndsAt.Local.Format "2006-01-02 15:04:05" }}  
+    {{ end }}{{ end -}}
+    {{- end }}
+
+    {{/* For default */}}
+    {{ define "ding.link.title" }}{{ template "elvin.title" . }}{{ end }}
+    {{ define "ding.link.content" }}{{ template "elvin.tz.text" . }}{{ end }}
+
+{%endraw%}
+
+---
+
+#https://github.com/timonwong/prometheus-webhook-dingtalk

@@ -1,0 +1,48 @@
+---
+
+- name: init list
+  debug:
+    msg:
+        - "initlist: #{{ init_list |length }}"
+        - "{{ init_list }}"
+  delegate_to: localhost
+  tags: never,initlist
+
+- name: "create dir for init"
+  file:
+    state:    directory
+    path:     "{{ deploy_yml_dir }}/{{ namespace }}/init"
+  delegate_to: "{{ deploy_yml_node }}"
+  tags: init,init-yml
+
+- name: "rm yml for init"
+  file:
+    path: "{{ deploy_yml_dir }}/{{ namespace }}/init/{{ item }}"
+    state: absent
+  delegate_to: "{{ deploy_yml_node }}"
+  with_items: "{% if initlist == 'all' %}{{ init_list }}{% else %}{{ initlist }}{% endif %}"
+  tags: never,init-yml-rm
+
+- name: "copy yml for init"
+  template:
+    src: "init/{{ item }}"
+    dest: "{{ deploy_yml_dir }}/{{ namespace }}/init/{{ item }}"
+  delegate_to: "{{ deploy_yml_node }}"
+  with_items: "{% if initlist == 'all' %}{{ init_list }}{% else %}{{ initlist }}{% endif %}"
+  tags: init,init-yml
+
+- name: "Delete for init"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} delete -f {{ deploy_yml_url }}/{{ namespace }}/init/{{ item }}
+  delegate_to: "{{ kubectl_node }}"
+  with_items: "{% if initlist == 'all' %}{{ init_list | sort(reverse=true) }}{% else %}{{ initlist | sort(reverse=true) }}{% endif %}"
+  tags: never,init-rm
+
+- name: "deploy for init"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    {{kubectl}} apply -f {{ deploy_yml_url }}/{{ namespace }}/init/{{ item }}
+  delegate_to: "{{ kubectl_node }}"
+  with_items: "{% if initlist == 'all' %}{{ init_list }}{% else %}{{ initlist }}{% endif %}"
+  tags: init,init-deploy

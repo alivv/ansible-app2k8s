@@ -1,0 +1,161 @@
+---
+
+apiVersion: apps/v1
+{% if item == 'ms-eureka' %}
+kind: StatefulSet
+{% else %}
+kind: Deployment
+{% endif %}
+metadata:
+  name: {{ item }}
+  namespace: {{ namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ item }}
+      env:  {{env}}
+  replicas: {{ k8s_pod_replicas }}
+{% if item == 'ms-eureka' %}
+  serviceName: {{ item }}
+{% endif %}
+  revisionHistoryLimit: {{ k8s_revisionHistoryLimit|default(10) }}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "jvm"
+        prometheus.io/port: "{{java_agent_port}}"
+      labels:
+        app.kubernetes.io/name: "{{ app_service_type }}"
+        app: {{ item }}
+        env:  {{env}}
+    spec:
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: {{ docker_registry_key }}
+{% endif %} 
+{% if k8s_nodeAffinity == true %}
+      affinity:
+        nodeAffinity:
+          {# #硬策略 -#} 
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: x.k8sNodeEnv
+                operator: In
+                values:
+                - all
+                - {{env}}
+{% endif %}
+{% if k8s_log_pvc_add == true and k8s_pvc_replace_permissions == true %}
+      initContainers:
+      - name: init-pod
+        image: {{ deploy_repository_url }}/{{ deploy_public_category }}bash:5.1.4
+        volumeMounts:
+        - name: log
+          mountPath: "/var/log/{{ item }}"
+          subPath: {{ item }}
+        command:
+        - bash
+        - -c
+        - |
+          chown 999:999 -R /var/log/{{ item }}
+          chmod 777 /var/log/{{ item }}
+{% endif %}
+
+      containers:
+      - name: {{ item }}
+        image: "{{ deploy_repository_url }}/{{ deploy_repository_category }}{{ item }}:{{ docker_image_tag }}"
+        imagePullPolicy: Always  # IfNotPresent
+        command:
+        - bash
+        - -c
+        - |
+          {{ start_app_opts }} 
+          {#-  #tail -f /etc/hosts #} 
+        lifecycle: 
+          postStart: 
+            exec: 
+              command: 
+              - bash
+              - -c 
+              - |
+                mkdir -p /var/log/app
+                touch /var/log/{{ item }}/gc.$(hostname).log
+                touch /var/log/{{ item }}/$(hostname).log
+                ln -fs /var/log/{{ item }}/gc.$(hostname).log  /var/log/app/gc.log
+                ln -fs /var/log/{{ item }}/$(hostname).log  /var/log/app/{{ item }}.log
+{# 
+          preStop: 
+            exec: 
+              command: 
+              - 'sleep'
+              - '2'
+#} 
+        volumeMounts:
+{% if k8s_log_pvc_add == true %}
+        - name: log
+          mountPath: "/var/log/{{ item }}"
+          subPath: {{ item }}
+{% endif %}
+        ports:
+        - name: http
+          containerPort: {{ app_port }}
+          protocol: TCP
+        resources:
+          requests:
+            cpu: {{ k8s_pod_resources_requests_cpu }}
+            memory: {{ k8s_pod_resources_requests_memory }}Mi
+          limits:
+            cpu: {{ k8s_pod_resources_limits_cpu }}
+            memory: {{ k8s_pod_resources_limits_memory }}Mi
+        env:
+        - name: ENV
+          value: '/etc/profile'
+        {# #启动探测 -#} 
+        startupProbe:
+          {# #最大启动时间3×60=180s=3m -#} 
+          periodSeconds: 3
+          failureThreshold: 60
+          tcpSocket:
+            port: {{ app_port }}
+        {# #就绪探测 -#} 
+        readinessProbe:
+          initialDelaySeconds: 10
+          timeoutSeconds: 2
+          periodSeconds: 10
+          successThreshold: 2
+          failureThreshold: 6
+          httpGet:
+            path: {{ k8s_check_path }}
+            port: {{ app_port }}
+{% if k8s_pod_readinessProbe_httpType == 'json' %}
+            httpHeaders:
+            - name: Content-Type
+              value: "application/json"
+{% endif %}
+        {# #存活探测 -#} 
+        livenessProbe:
+          {# #启动等待 -#} 
+          initialDelaySeconds: 10
+          {# #超时 -#} 
+          timeoutSeconds: 2
+          {# #探测频率 -#}
+          periodSeconds: 10
+          {# #连续探测1次成功表示成功 -#} 
+          successThreshold: 1
+          {# #探测失败重试次数 -#} 
+          failureThreshold: 3
+          httpGet:
+            path: {{ k8s_check_path }}
+            port: {{ app_port }}
+{% if k8s_pod_readinessProbe_httpType == 'json' %}
+            httpHeaders:
+            - name: Content-Type
+              value: "application/json"
+{% endif %}
+      volumes:
+{% if k8s_log_pvc_add == true %}
+      - name: log
+        persistentVolumeClaim:
+          claimName: {{ k8s_log_pvc.name }}
+{% endif %}

@@ -1,0 +1,115 @@
+---
+
+{% if k8s_version is version("1.19","<") %}
+apiVersion: extensions/v1beta1
+{% else %}
+apiVersion: networking.k8s.io/v1
+{% endif %}
+kind: Ingress
+metadata:
+  name: {{ env }}-k8s-demo
+  namespace: {{ namespace }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/limit-connections: '100'
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    {# #cert-manager.io/cluster-issuer: "letsencrypt" -#} 
+    nginx.ingress.kubernetes.io/server-snippet: |
+
+        more_set_headers "Content-Security-Policy: frame-ancestors 'self'";
+        more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; always;";
+        add_header X-Xss-Protection "1;mode=block";
+        add_header X-Content-Type-Options "nosniff";
+        more_set_headers 'Set-Cookie: $sent_http_set_cookie; SameSite=Lax; secure';
+        more_set_headers 'Server: blog.elvin.vip';
+
+        #deny
+        location ~ ({{ deniedAccessUrl|join('|') }})$ {
+{#- #注释annotation 
+{% for lan in podSubnet %}
+            allow {{lan}};
+{% endfor %}
+            deny all;
+#} 
+            return https://$host;
+        }
+
+spec:
+  tls:
+  - hosts:
+    - {{ k8s_ingress_app_domain_name }}
+    secretName: https-crt
+  rules:
+  - host: {{ k8s_ingress_app_domain_name }}
+    http:
+      paths:
+
+      # app services
+{% for service in app_backend_services %}
+{%- for path in app_backend_services[service] %}
+      - path: {{ path }}
+        pathType: Prefix
+        backend:
+{% if k8s_version is version("1.19","<") %}
+          serviceName: {{ service }}
+          servicePort: 8080
+{% else %}
+          service:
+            name: {{ service }}
+            port: 
+              number: 8080
+{% endif %}
+{% endfor %}
+
+{% endfor %}
+
+      # ms services
+{% for MSservice in ms_backends %}
+{%- for path in  ms_backends[MSservice] %}
+      - path: {{ path }}
+        pathType: Prefix
+        backend:
+{% if k8s_version is version("1.19","<") %}
+          serviceName: {{ MSservice }}
+          servicePort: 8080
+{% else %}
+          service:
+            name: {{ MSservice }}
+            port: 
+              number: 8080
+{% endif %}
+{% endfor %}
+
+{% endfor %}
+
+      # web page from nginx dmeo
+      - path: /web/
+        pathType: Prefix
+        backend:
+{% if k8s_version is version("1.19","<") %}
+          serviceName: web-demo1
+          servicePort: 80
+{% else %}
+          service:
+            name: web-demo1
+            port: 
+              number: 80
+{% endif %}
+
+      # default page
+      - path: /
+        pathType: Prefix
+        backend:
+{% if k8s_version is version("1.19","<") %}
+          serviceName: ms-eureka
+          servicePort: 8761
+{% else %}
+          service:
+            name: ms-eureka
+            port: 
+              number: 8761
+{% endif %}

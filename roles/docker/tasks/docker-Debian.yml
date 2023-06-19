@@ -1,0 +1,87 @@
+---
+#Debian/Ubuntu 
+
+- name: Verify docker apt key 
+  apt_key:
+    url: "{{ docker_apt_gpg_key }}"
+    id: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+    state: present
+  register: add_repository_key
+  changed_when: false
+  ignore_errors: "{{ docker_apt_ignore_key_error }}"
+  tags: docker
+#
+- block:
+  - name: remove old versions of Docker 
+    package:
+      name:
+        - runc
+        - docker
+        - docker.io
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+        - docker-engine
+      state: absent
+
+  - name: Install dependency package 
+    package:
+      name:
+        - apt-transport-https
+        - ca-certificates
+        - gnupg2
+        - software-properties-common
+      state: present
+
+  tags: docker
+  when: >
+    (add_repository_key is failed) or
+    (docker_version is defined and docker_version not in get_docker_version.stdout)
+
+- name: Add Docker apt key 
+  shell: >
+    curl -V || apt install curl -y
+    curl -sSL {{ docker_apt_gpg_key }} | sudo apt-key add -
+  args:
+    warn: false
+  when: add_repository_key is failed
+  tags: docker
+
+- name: Add Docker repository 
+  apt_repository:
+    repo: "{{ docker_apt_repository }}"
+    state: present
+    filename: docker
+    update_cache: true
+  tags: docker
+
+- name: Install Docker latest 
+  package:
+    name: 
+      - "{{ docker_package }}"
+      - "{{ docker_package }}-cli"
+      - "containerd.io"
+    state: latest
+  when: docker_version is not defined
+  notify: restart docker
+  tags: docker
+
+- block:
+  - name: get docker {{ docker_version }} package 
+    shell: apt-cache madison docker-ce |awk '/{{ docker_version }}/{print $3}'
+    register: docker_package_version
+    changed_when: false
+    when: docker_version is defined
+    tags: docker
+
+  - name: Install Docker {{ docker_version }} 
+    package:
+      name: 
+        - "{{ docker_package }}={{ docker_package_version.stdout }}"
+        # - "{{ docker_package }}-cli={{ docker_package_version.stdout }}"
+        # - "containerd.io"
+      state: "{{ docker_package_state }}"
+    notify: restart docker
+  when: docker_version is defined
+    and docker_version not in get_docker_version.stdout
+  tags: docker

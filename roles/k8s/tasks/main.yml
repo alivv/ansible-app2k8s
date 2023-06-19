@@ -1,0 +1,57 @@
+---
+
+- name: notice
+  debug:
+    msg:
+      - "Need to add parameter list "
+      - "eg: -e initlist= -e applist="
+      - "ansible-playbook k8s.yml -D -i env/dev -t init-yml -e initlist=1.1.namespace.yml"
+  when: applist == ''
+  tags: never,yml,dockerfile,build,rmi,config,deploy,redeploy,reconfig,init
+
+- name: base image list
+  debug:
+    msg:
+        - "base image list: #{{ base_list |length }}"
+        - "{{ base_list }}"
+  tags: never,baselist
+
+- name: "base_build"
+  include: base_build.yml
+  when: baselist != ''
+  with_items: "{% if baselist == 'all' %}{{ base_list }}{% else %}{{ baselist }}{% endif %}"
+
+- name: "image_push"
+  include: image_push.yml
+
+- name: "kubectl"
+  include: kubectl.yml
+
+- name: "init"
+  include: init.yml
+  when: initlist != ''
+
+- name: "include monitor"
+  include: monitor.yml
+  # when: env != 'dev'
+
+- name: app list
+  debug:
+    msg:
+      - "applist: #{{ app_list |length }}"
+      - "{{ app_list }}"
+  tags: never,applist
+
+- name: "app"
+  include: app.yml
+  when: applist != ''
+  with_items: "{% if applist == 'all' %}{{ app_list }}{% elif applist == 'app' %}{{ app__list }}{% elif applist == 'web' %}{{ web__list }}{% elif applist == 'ms' %}{{ ms__list }}{% else %}{{ applist }}{% endif %}"
+
+- name: "include ingress"
+  when: ingress_rules != ''
+  include: ingress.yml
+
+
+- name: "test"
+  include: test.yml
+

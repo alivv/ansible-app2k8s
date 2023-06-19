@@ -1,0 +1,52 @@
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ k8s_pod_name }}-config
+  namespace: {{ namespace }}
+data:
+  applicationProperties: |-
+
+    #config demo
+    server.port=8080
+    server.servlet.context-path=/v2
+    server.tomcat.uri-encoding=UTF-8
+    spring.application.name=spring-boot-web
+    application.message={{ k8s_pod_name }}
+
+    database.driver.className=org.postgresql.Driver
+    database.app.url=jdbc:postgresql://10.2.3.4:5432/app
+    database.app.username=test_user
+    database.app.password=test_user_pwd
+
+
+  log4j2: |-
+
+    Configuration:
+    status: info
+
+    Appenders:
+      Console:
+        name: Console
+        target: SYSTEM_OUT
+        PatternLayout:
+          Pattern: "%d %p %t %c - %m%n"
+      RollingFile:
+        name: rollingFile
+        fileName: /var/log/{{ k8s_pod_name }}/${env:HOSTNAME}.log
+        filePattern: /var/log/{{ k8s_pod_name }}/${env:HOSTNAME}.%d{yyyy-MM-dd}.log
+        Policies:
+        - TimeBasedTriggeringPolicy:
+            interval: 1
+        append: true
+        PatternLayout:
+          Pattern: "%d %p %t %c - %m%n"
+
+    Loggers:
+      Root:
+        value: all
+        level: info
+        AppenderRef:
+          - ref: rollingFile
+          - ref: Console

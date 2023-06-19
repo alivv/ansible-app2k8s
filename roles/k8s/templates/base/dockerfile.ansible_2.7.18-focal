@@ -1,0 +1,40 @@
+FROM ubuntu:focal-20221130
+
+# {{ansible_date_time.date}}
+COPY dockerfile.{{ item }} /etc/dockerfile/
+
+RUN set -xe ; \
+    export DEBIAN_FRONTEND=noninteractive ; \
+    #
+    # Use Aliyun source
+    sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list && \
+    apt-get update; \
+    #
+    # Install utility tools
+    apt-get install -y --no-install-recommends net-tools curl jq vim-tiny inetutils-ping ; \
+    #
+    # Set timezone to Shanghai
+    apt-get install -y tzdata && \
+    ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime ; \
+    echo Asia/Shanghai > /etc/timezone ; \
+    #
+    # Install python and ansible
+    apt install -y wget python openssh-client ; \
+    # wget https://bootstrap.pypa.io/pip/2.7/get-pip.py && python get-pip.py ; \
+    wget https://mirrors.aliyun.com/pypi/get-pip.py && python get-pip.py ; \
+    pip install --upgrade setuptools==30.1.0  ; \
+    pip install ansible==2.7.18 cryptography==2.9 -i http://mirrors.aliyun.com/pypi/simple --trusted-host mirrors.aliyun.com ; \
+    ansible --version ; \
+    rm -f get-pip.py ; \
+    #
+    # Clean
+    apt-get clean  && \
+    find /var/log/ -type f | xargs rm -f && \
+    rm -rf /var/cache/apt/* /var/lib/apt/lists/* /tmp/* 
+
+WORKDIR  /root
+
+#dockerfile.{{ item }}
+# docker build --no-cache -t {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ item }} .
+# docker push {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}

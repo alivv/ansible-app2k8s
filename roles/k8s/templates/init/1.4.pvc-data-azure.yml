@@ -1,0 +1,72 @@
+---
+#data
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: k8s-{{env}}-data
+provisioner: file.csi.azure.com
+allowVolumeExpansion: true
+reclaimPolicy: Retain
+mountOptions:
+  - dir_mode=0777
+  - file_mode=0644
+  - uid=0
+  - gid=0
+  - mfsymlinks
+  - cache=strict
+  - actimeo=30
+parameters:
+  skuName: Standard_ZRS
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ k8s_data_pvc.name }}
+  namespace: {{ namespace }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: k8s-{{env}}-data
+  resources:
+    requests:
+      storage: {{ k8s_data_pvc.resources_requests }}
+
+---
+#log
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: k8s-{{env}}-log
+provisioner: file.csi.azure.com
+allowVolumeExpansion: true
+reclaimPolicy: Retain
+mountOptions:
+  - dir_mode=0777
+  - file_mode=0644
+  - uid=999
+  - gid=999
+  - mfsymlinks
+  - cache=strict
+  - actimeo=30
+parameters:
+  skuName: Standard_LRS
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ k8s_log_pvc.name }}
+  namespace: {{ namespace }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: k8s-{{env}}-log
+  resources:
+    requests:
+      storage: {{ k8s_log_pvc.resources_requests }}
+
+# #doc
+# https://learn.microsoft.com/en-us/azure/aks/azure-files-csi

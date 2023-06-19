@@ -1,0 +1,72 @@
+#docker-registry.yml
+
+- name: print registry
+  debug:
+    msg:
+      - "docker-registry:  {{ registry_domain_name }}"
+      - "registry-ui: http://{{ registry_domain_name }}{% if registry_ui_port != 80 %}:{{ registry_ui_port }}{% endif %}"
+      - "user {{ registry_username }}"
+      - "pwd  {{ registry_password }}"
+  changed_when: false
+  run_once: yes
+  delegate_to: localhost
+  tags: never,registry,registry-v
+
+- name: "create dir for registry"
+  file:
+    state:    directory
+    path:     "{{ registry_data_dir }}/"
+  tags: never,registry
+
+- name: Download https certificate
+  get_url:
+    url: "{{ registry_download_url }}/{{ item }}"
+    dest: "{{ registry_data_dir }}/{{ item }}"
+    mode: 0644
+    force: yes
+  with_items:
+    - "{{ registry_domain_name }}.key"
+    - "{{ registry_domain_name }}.pem"
+  tags: never,registry
+
+- name: copy shell script for registry
+  template:
+    src: run.docker-registry.sh
+    dest: "{{ registry_data_dir }}/"
+    mode: 0744
+  tags: never,registry
+
+- name: run run.docker-registry.sh
+  shell: |
+    bash {{ registry_data_dir }}/run.docker-registry.sh
+  register: get_docker_version
+  changed_when: false
+  tags: never,registry
+
+- name: imgcli for registry
+  template:
+    src: imgcli.sh
+    dest: /usr/local/bin/imgcli
+    mode: 0755
+  tags: never,registry-cli
+
+- name: get registry auth
+  shell: |
+    echo -n {{ registry_username }}:{{ registry_password }} |base64
+  register: get_registry_auth
+  tags: never,registry-auth
+
+- name: "create dir for registry"
+  file:
+    state:    directory
+    path:     "/root/.docker"
+    mode: "0600"
+  tags: never,registry-auth
+
+- name: registry auth config 
+  template:
+    src: config.json
+    dest: /root/.docker/config.json
+    mode: "0600"
+    backup: yes
+  tags: never,registry-auth

@@ -1,0 +1,43 @@
+---
+
+app_list: "{{ app__list + web__list + ms__list }}"
+
+#######################################
+#有状态服务
+#remove to initlist
+
+# state_list:
+
+
+#######################################
+#前端和后端独立部署的服务
+#Front end and back-end independently deployed services
+
+app__list:
+
+#nginx
+# - app-static
+#jetty
+- app-v1
+#jar
+- app-v2
+
+#######################################
+#微服务 
+#micro service
+
+ms__list:
+
+- ms-eureka
+- ms-api1
+- ms-api2
+
+
+#######################################
+#web应用，每个服务都有单独域名
+#Web application, each service has its own domain name
+
+web__list:
+
+- web-demo1
+

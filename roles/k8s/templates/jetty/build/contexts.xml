@@ -1,0 +1,29 @@
+<?xml version="1.0"  encoding="ISO-8859-1"?>
+<!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "http://www.eclipse.org/jetty/configure.dtd">
+
+
+<Configure class="org.eclipse.jetty.webapp.WebAppContext">
+{% for path in docker_build_context.paths %}
+  <Set name="contextPath">{{ path }}</Set>
+{% endfor %}
+  <Set name="war"><SystemProperty name="jetty.base" default="."/>/webapps/{{ docker_image_name }}.war</Set>
+  <Set name="extractWAR">true</Set>
+  <Set name="defaultsDescriptor"><SystemProperty name="jetty.home" default="."/>/etc/webdefault.xml</Set>
+  <Set name="extraClasspath"><SystemProperty name="jetty.base" default="."/>/etc/{{ docker_image_name }}/</Set>
+{% if docker_build_context.initParameters is defined %}
+{% for initParam in docker_build_context.initParameters %}
+  <Call name="setInitParameter">
+    <Arg>{{ initParam.name }}</Arg>
+    <Arg>{{ initParam.value }}</Arg>
+  </Call>
+{% endfor %}
+{% endif %}
+{% if docker_build_context.attributes is defined %}
+{% for attr in docker_build_context.attributes %}
+  <Call name="setAttribute">
+      <Arg>{{ attr.name }}</Arg>
+      <Arg>{{ attr.value }}</Arg>
+  </Call>
+{% endfor %}
+{% endif %}
+</Configure>

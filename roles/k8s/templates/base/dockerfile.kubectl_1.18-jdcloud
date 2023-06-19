@@ -1,0 +1,32 @@
+FROM alpine:3.15
+
+# {{ansible_date_time.date}}
+COPY dockerfile.{{ item }} /etc/dockerfile/
+
+ENV KUBE_VERSION=1.18.20
+
+RUN date ; \
+    #install kubectl
+    sed -i.bak s/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g /etc/apk/repositories ; \
+    apk add --no-cache ca-certificates bash curl jq  ; \
+    wget https://dl.k8s.io/release/v${KUBE_VERSION}/bin/linux/amd64/kubectl -O /usr/local/bin/kubectl && \
+    chmod +x /usr/local/bin/kubectl ; \
+    kubectl version --short ; \
+    #install python2 and jdcloud-cli
+    apk add --no-cache python2 ; \
+    mkdir -p ~/.pip   ; \
+    echo -e "[global]\nindex-url = http://mirrors.aliyun.com/pypi/simple\n[install]\ntrusted-host=mirrors.aliyun.com" >~/.pip/pip.conf ; \
+    wget https://mirrors.aliyun.com/pypi/get-pip.py && \
+    python get-pip.py ; \
+    [ -f /usr/bin/pip ] || python get-pip.py  ; \
+    pip install jdcloud_cli  ; \
+    jdc -v  ; \
+    #clear
+    rm -f get-pip.py
+
+WORKDIR /root
+# ENTRYPOINT ["kubectl"]
+CMD ["kubectl"]
+
+# {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}
+# docker build --no-cache -t {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ docker_image_name }}_{{ docker_image_tag }} .

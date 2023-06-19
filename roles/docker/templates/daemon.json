@@ -1,0 +1,15 @@
+{
+    "insecure-registries":["{{ docker_local_ip }}","{{ docker_node_network }}"],
+    "registry-mirrors": [
+      "https://pzpl72fb.mirror.aliyuncs.com",
+      "https://hub-mirror.c.163.com",
+      "http://f1361db2.m.daocloud.io"
+      ],
+    "exec-opts": ["native.cgroupdriver=systemd"],
+    "storage-driver": "overlay2",
+    "log-driver": "json-file",
+    "log-opts": {
+      "max-size": "100m",
+      "max-file": "3"
+    }
+}

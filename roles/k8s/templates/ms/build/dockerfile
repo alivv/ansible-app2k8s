@@ -1,0 +1,40 @@
+#FROM {{ local_repository_url }}/base/java:jdk-8u202-focal
+FROM registry.cn-shanghai.aliyuncs.com/elvin/java:jdk-8u202-focal
+
+# {{ansible_date_time.date}}
+COPY dockerfile /etc/dockerfile/
+
+ENV app_name={{ item }} \
+    app_version={{ docker_image_tag }}
+
+RUN date ; \
+    #add app package
+    mkdir -p /opt/app ; \
+    # curl -sL -o /opt/app/{{ service_package }}  {{ release_download_url }}/{{ item }}/{{ docker_image_tag }}/{{ service_package }}  && \
+    curl -sL -o /opt/app/{{ service_package }}  http://files.elvin.vip/demo/{{ service_package }}  && \
+    #java_agent
+    mkdir -p /opt/java_agent/ ; cd /opt/java_agent/ ; \
+    curl -sL -o {{java_agent}}   {{ binary_download_url }}/{{java_agent}}  && \
+    curl -sL -o jmx_exporter.yml {{ binary_download_url }}/jmx_exporter.yml && \
+    #add user
+    groupadd --gid 999 app  && \
+    useradd --uid 999 --gid app --shell /bin/bash --create-home app && \
+    chown -R app:app /opt && \
+    mkdir -p /var/log/app ; chown -R app:app /var/log/app ; \
+    mkdir -p /var/log/{{ item }} ; chown -R app:app /var/log/{{ item }} ; \
+    #alias
+    ln -fs /usr/bin/vi /usr/bin/vim ; \
+    echo "alias ll='ls -hl --color=auto'" >>/etc/profile && \
+    [ -d /home/app ] && { Dir=/home/app ; } || { Dir=/root ; } ; \
+    echo "#build-time $(date +'%F %T')" >>${Dir}/.bashrc ; \
+    echo "alias ll='ls -hl --color=auto'" >>${Dir}/.bashrc ; \
+    echo "alias lll='cd /var/log/app'" >>${Dir}/.bashrc ; \
+    echo "alias ck='curl -s http://127.0.0.1:{{app_port}}{{k8s_check_path}} |jq'" >>${Dir}/.bashrc ; 
+
+USER app
+WORKDIR /opt/app
+
+# CMD ["bash"]
+
+
+# docker build --no-cache -t {{ local_repository_url }}/{{ local_repository_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile .

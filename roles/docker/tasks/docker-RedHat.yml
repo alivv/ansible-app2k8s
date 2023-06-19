@@ -1,0 +1,83 @@
+---
+#CentOS/Fedora 
+
+- name: Add Docker GPG key 
+  rpm_key:
+    key: "{{ docker_yum_gpg_key }}"
+    state: present
+  register: add_repository_key
+  changed_when: false
+  tags: docker
+  
+#
+- name: remove old versions of Docker 
+  package:
+    name:
+      - docker
+      - docker-common
+      - docker-engine
+      - docker-client
+      - docker-client-latest
+      - docker-latest
+      - docker-latest-logrotate
+    state: absent
+  when: >
+    (add_repository_key is failed) or
+    (docker_version is defined and docker_version not in get_docker_version.stdout)
+  tags: docker
+
+- name: Add Docker repository.
+  get_url:
+    url: "{{ docker_yum_repo_url }}"
+    dest: '/etc/yum.repos.d/docker-{{ docker_edition }}.repo'
+    force: yes
+    owner: root
+    group: root
+    mode: 0644
+  tags: docker
+
+- name: Install Docker latest 
+  package:
+    name: 
+      - "{{ docker_package }}"
+      - "{{ docker_package }}-cli"
+      - "containerd.io"
+    state: latest
+  when: docker_version is not defined
+  notify: restart docker
+  tags: docker
+
+- block:
+  - name: get docker {{ docker_version }} package 
+    shell: |
+      Ver=$(yum list docker-ce --showduplicates |awk '/{{ docker_version }}/{print $2}')
+      if [ "$Ver" = "" ];then
+        exit 1
+      elif [ $(echo $Ver |grep ":" |wc -l) -eq 1 ];then
+        echo {{ docker_version }}
+      else
+        echo "{{ docker_version }}.ce"
+      fi
+    register: docker_package_version
+    changed_when: false
+
+  - name: Install Docker {{ docker_version }} 
+    package:
+      name: 
+        - "{{ docker_package }}-{{ docker_package_version.stdout }}"
+        # - "{{ docker_package }}-cli-{{ docker_package_version.stdout }}"
+        # - "containerd.io"
+      state: "{{ docker_package_state }}"
+    notify: restart docker
+
+  when: docker_version is defined
+    and docker_version not in get_docker_version.stdout
+  tags: docker
+
+- name: Install containerd (CentOS 8) 
+  package:
+    name: containerd.io
+    state: present
+  when: ansible_distribution_major_version | int == 8
+    and docker_version is not defined
+  tags: docker

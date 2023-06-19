@@ -1,0 +1,113 @@
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ k8s_pod_name }}
+  namespace: {{ namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ k8s_pod_name }}
+  replicas: {{ k8s_pod_replicas }}
+  revisionHistoryLimit: {{ k8s_revisionHistoryLimit|default(10) }}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9913"
+      labels:
+        app.kubernetes.io/name: nginx
+        app: {{ k8s_pod_name }}
+    spec:
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: {{ docker_registry_key }}
+{% endif %} 
+{% if k8s_nodeAffinity == true %}
+      affinity:
+        nodeAffinity:
+          {# #硬策略 -#} 
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: x.k8sNodeEnv
+                operator: In
+                values:
+                - all
+                - {{env}}
+{% endif %}
+      containers:
+      - name: {{ k8s_pod_name }}
+        image: "{{ deploy_repository_url }}/{{ deploy_repository_category }}{{ docker_image_name }}:{{ docker_image_tag }}"
+        imagePullPolicy: Always  # IfNotPresent
+        volumeMounts:
+{% if k8s_configmap_enabled == true %}
+        - name: config
+          mountPath: "/opt/nginx"
+          readOnly: true
+{% endif %}
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        resources:
+          requests:
+            cpu: {{ k8s_pod_resources_requests_cpu }}
+            memory: {{ k8s_pod_resources_requests_memory }}
+          limits:
+            cpu: {{ k8s_pod_resources_limits_cpu }}
+            memory: {{ k8s_pod_resources_limits_memory }}
+        env:
+        - name: ENV
+          value: '/etc/profile'
+        lifecycle: 
+          postStart: 
+            exec: 
+              command: 
+              - sh
+              - -c 
+              - |
+                rm -f /etc/nginx/nginx.conf && \
+                ln -fs /opt/nginx/nginx.conf /etc/nginx/nginx.conf
+                nginx -t && nginx -s reload
+          preStop: 
+            exec: 
+              command: 
+              - 'sleep'
+              - '10'
+        {# #就绪探测 -#} 
+        readinessProbe:
+          initialDelaySeconds: {{ k8s_pod_readinessProbe_initialDelaySeconds }}
+          timeoutSeconds: 3
+          periodSeconds: {{ k8s_pod_readinessProbe_periodSeconds }}
+          successThreshold: 2
+          failureThreshold: {{ k8s_pod_readinessProbe_failureThreshold }}
+          tcpSocket:
+            port: 80
+        {# #存活探测 -#} 
+        livenessProbe:
+          {# #启动等待 -#} 
+          initialDelaySeconds: {{ k8s_pod_livenessProbe_initialDelaySeconds }}
+          {# #超时 -#} 
+          timeoutSeconds: 3
+          {# #探测频率 -#} 
+          periodSeconds: 10
+          {# #连续探测1次成功表示成功 -#} 
+          successThreshold: 1
+          {# #连续探测3次失败表示失败 -#} 
+          failureThreshold: 3
+          tcpSocket:
+            port: 80
+      {# #等待优雅地终止 -#} 
+      terminationGracePeriodSeconds: 20
+
+      volumes:
+{% if k8s_configmap_enabled == true %}
+      - name: config
+        configMap:
+          name: {{ k8s_pod_name }}-config
+          items:
+          - key: nginx.conf
+            path: nginx.conf
+{% endif %}

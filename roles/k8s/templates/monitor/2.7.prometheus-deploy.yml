@@ -1,0 +1,114 @@
+#prometheus-deploy.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: {{monitor_namespace}}
+  labels:
+    app: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      securityContext:
+        runAsUser: 0
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: "{{docker_registry_key}}"
+{% endif %}
+      containers:
+      - name: prometheus
+        # image: prom/prometheus:v2.25.0
+        image: {{ deploy_repository_url }}/{{ deploy_public_category }}prometheus:v2.36.1
+        imagePullPolicy: IfNotPresent
+        command:
+        - "/bin/prometheus"
+        args:
+        - "--config.file=/etc/prometheus/prometheus.yml"
+        - "--storage.tsdb.path=/prometheus"
+        - "--storage.tsdb.retention.time={{ prome_data_keep_time|default('15d') }}"
+        - "--web.enable-admin-api"
+        - "--web.enable-lifecycle"
+        - "--storage.tsdb.no-lockfile"
+        - "--web.external-url={{monitor_scheme}}://{{prometheus_url}}"
+        - "--web.page-title=oTMS Prometheus for k8s"
+        ports:
+        - containerPort: 9090
+          protocol: TCP
+          name: http
+        volumeMounts:
+        - mountPath: "/prometheus"
+          subPath: prometheus
+          name: data
+        - mountPath: "/etc/prometheus"
+          name: prometheus-conf
+        - mountPath: "/etc/localtime"
+          name: localtime
+          readOnly: true
+        resources:
+          requests:
+            cpu: 200m
+            memory: 1Gi
+          limits:
+            cpu: 400m
+            memory: 2Gi
+        #就绪探测
+        readinessProbe:
+          initialDelaySeconds: 10
+          tcpSocket:
+            port: 9090
+        #存活探测
+        livenessProbe:
+          initialDelaySeconds: 20
+          tcpSocket:
+            port: 9090
+
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ k8s_monitor_pvc.name }}
+      - name: prometheus-conf
+        configMap:
+          name: prometheus-config
+      - name: localtime
+        hostPath:
+          path: /etc/localtime
+
+      #尽量与alertmanager部署同节点
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:  #软策略
+          - weight: 10
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - alertmanager
+              topologyKey: kubernetes.io/hostname
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: {{monitor_namespace}}
+  labels:
+    app: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - name: web
+      port: 9090
+      targetPort: 9090
+

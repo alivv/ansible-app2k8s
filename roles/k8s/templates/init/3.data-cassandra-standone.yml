@@ -1,0 +1,162 @@
+#cassandra
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ cassandra.name }}
+  namespace: {{ namespace }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ cassandra.name }}
+    env: {{ env }}
+  ports:
+  - name: cql
+    port: 9042
+    targetPort: 9042
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ cassandra.name }}
+  namespace: {{ namespace }}
+spec:
+  serviceName: {{ cassandra.name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ cassandra.name }}
+      env: {{ env }}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{java_agent_port}}"
+      labels:
+        app.kubernetes.io/name: cassandra
+        app: {{ cassandra.name }}
+        env: {{ env }}
+    spec:
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: {{ docker_registry_key }}
+{% endif %}
+{% if k8s_nodeAffinity == true %}
+      affinity:
+        nodeAffinity:
+          {# #硬策略  -#} 
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: x.k8sNodeEnv
+                operator: In
+                values:
+                - all
+                - {{env}}
+{% endif %}
+      containers:
+      - name: {{ cassandra.name }}
+        image: "{{ deploy_repository_url }}/{{ deploy_public_category }}cassandra:{{ cassandra.tag }}"
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: datadir
+          mountPath: /var/lib/cassandra
+          subPath: {{ cassandra.name }}      
+          readOnly: false
+        - mountPath: "/etc/localtime"
+          name: localtime
+          readOnly: true
+        ports:
+        - containerPort: 9160
+          name: http
+          protocol: TCP
+        - containerPort: 9042
+          name: cql
+          protocol: TCP
+        startupProbe:
+          periodSeconds: 2
+          timeoutSeconds: 2
+          failureThreshold: 60
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - /opt/check
+        readinessProbe:
+          periodSeconds: 5
+          tcpSocket:
+            port: 9042
+        livenessProbe:
+          periodSeconds: 10
+          timeoutSeconds: 8
+          initialDelaySeconds: 10
+          failureThreshold: 4
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - /opt/check
+        env:
+        - name: CASSANDRA_CLUSTER_NAME
+          value: {{ cassandra.name }}
+        - name: MAX_HEAP_SIZE
+          value: {{ CAxmx }}M
+        - name: HEAP_NEWSIZE
+          value: {{ CAnew }}M
+        - name: CASSANDRA_DC
+          value: {{ env }}
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        command:
+        - bash
+        - -c
+        - |
+          sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list
+          sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list
+          if [ -f /var/lib/cassandra/jmx_agent.jar ]; then
+            echo "jmx-agent ok"
+          else
+            echo 'download jmx_agent'
+            [ -f /usr/bin/curl ] || { apt update >/dev/null ; apt install curl >/dev/null ; }
+            curl -sL -o /var/lib/cassandra/jmx_agent.jar  https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar
+            curl -sL -o /var/lib/cassandra/cassandra.yml  http://files.elvin.vip/download/cassandra.yml
+          fi
+          echo "alias ll='ls -hl --color=auto'" >>~/.bashrc
+          echo "alias ck='nodetool status'" >>~/.bashrc
+          echo "export PATH=$PATH:/opt/cassandra/bin" >>~/.profile
+          echo '#/bin/bash' >/opt/check
+          echo '[ $(/opt/cassandra/bin/nodetool status |grep $POD_IP |wc -l) -eq 1 ] && { exit 0 ; } || { echo "Not UP"; exit 1; } ' >>/opt/check
+          chmod +x /opt/check
+          echo -e '#!/bin/bash\n#install tools\napt update' >install.tools.sh
+          echo "apt install -y --no-install-recommends --assume-yes net-tools vim-tiny inetutils-ping procps " >>install.tools.sh
+          chmod +x install.tools.sh
+          export JVM_OPTS="$JVM_OPTS -javaagent:/var/lib/cassandra/jmx_agent.jar=9123:/var/lib/cassandra/cassandra.yml"
+          docker-entrypoint.sh cassandra -f
+        resources:
+          requests:
+            cpu: {{ cassandra.requests_cpu }}
+            memory: {{ cassandra.requests_ram }}
+          limits:
+            cpu: {{ cassandra.limits_cpu }}
+            memory: {{ cassandra.limits_ram }}
+        lifecycle:
+          preStop:
+            exec:
+              command: 
+              - /bin/bash
+              - -c
+              - nodetool drain
+      volumes:
+      - name: localtime
+        hostPath:
+          path: /etc/localtime
+      - name: datadir
+        persistentVolumeClaim:
+          claimName: {{ k8s_data_pvc.name }}
+

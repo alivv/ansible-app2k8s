@@ -1,0 +1,42 @@
+#FROM {{ local_repository_url }}/base/mule:3.7.0-jdk8u202-focal
+FROM registry.cn-shanghai.aliyuncs.com/elvin/mule:3.7.0-jdk8u202-focal
+
+USER root
+
+ENV SERVICE_NAME={{ docker_image_name }}
+ENV SERVICE_VERSION={{ docker_image_tag }}
+
+COPY healtcheck.sh /opt/
+
+RUN set -xe ; \
+{% if mule_domain_info != '' %}
+    #domains
+    rm -rf $MULE_HOME/domains/* ; \
+{% for Domans in mule_domain_info %}
+    curl -sL -o $MULE_HOME/domains/{{ Domans }}.zip {{ release_download_url }}/{{ docker_image_name }}/{{ docker_image_tag }}/{{ Domans }}.zip && \
+{% endfor %}
+{% endif %}
+    #
+{% if mule_app_info != '' %}
+    #apps
+    rm -rf $MULE_HOME/apps/* ; \
+{% for Apps in mule_app_info %}
+    curl -sL -o $MULE_HOME/apps/{{ Apps }}.zip {{ release_download_url }}/{{ docker_image_name }}/{{ docker_image_tag }}/{{ Apps }}.zip && \
+{% endfor %}
+{% endif %}
+    #
+    #java_agent
+    #alias
+    echo "alias ll='ls -hl --color=auto'" >>/etc/profile ; \
+    echo "alias ll='ls -hl --color=auto'" >>/home/mule/.bashrc ; \
+    echo "alias ck='bash /opt/healtcheck.sh status'" >>/home/mule/.bashrc ; \
+    chmod +x /opt/healtcheck.sh ; \
+    chown -R mule:mule $MULE_HOME /home/mule /opt/healtcheck.sh
+
+
+USER mule
+WORKDIR $MULE_HOME
+
+# CMD ["./mule.sh"]
+
+# docker build --no-cache -t {{ local_repository_url }}/{{ local_repository_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile .

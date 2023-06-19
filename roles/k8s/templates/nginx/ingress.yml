@@ -1,0 +1,59 @@
+---
+
+{% if k8s_version is version("1.19","<") %}
+apiVersion: extensions/v1beta1
+{% else %}
+apiVersion: networking.k8s.io/v1
+{% endif %}
+kind: Ingress
+metadata:
+  name: {{ item }}
+  namespace: {{ namespace }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-connections: '100'
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+{% if k8s_ingress_scheme ==  'https' %}
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+{% if k8s_ingress_cert_issuer == 'letsencrypt' %}
+    cert-manager.io/cluster-issuer: "letsencrypt"
+{% endif %}
+{% endif %}
+    nginx.ingress.kubernetes.io/server-snippet: |
+
+        location ~ ^/.*/(\;|\.\;|\.\.\;) {
+            # return 403;
+            return https://$host;
+        }
+
+spec:
+{% if k8s_ingress_scheme ==  'https' %}
+  tls:
+  - hosts:
+    - {{ k8s_ingress_domain_name }}
+{% if k8s_ingress_cert_issuer == '' %}
+    secretName: https-crt
+{% else %}
+    secretName: {{ k8s_ingress_domain_name }}-ssl
+{% endif %}
+{% endif %}
+  rules:
+  - host: {{ k8s_ingress_domain_name }}
+    http:
+      paths:
+      # backend
+      - path: /
+        pathType: Prefix
+        backend:
+{% if k8s_version is version("1.19","<") %}
+          serviceName: {{ item }}
+          servicePort: 80
+{% else %}
+          service:
+            name: {{ item }}
+            port: 
+              number: 80
+{% endif %}

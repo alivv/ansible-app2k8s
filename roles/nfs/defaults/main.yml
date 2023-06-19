@@ -1,0 +1,11 @@
+---
+
+nfs_exports: 
+  - /data/nfs *(rw,all_squash,async)
+
+nfs_sub_directory:
+- /data/nfs/monitor
+- /data/nfs/others
+- /data/nfs/others/k8s-kubepi
+- /data/nfs/{{ namespace }}-log
+- /data/nfs/{{ namespace }}-data

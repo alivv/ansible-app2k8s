@@ -1,0 +1,200 @@
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ k8s_pod_name }}
+  namespace: {{ namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ k8s_pod_name }}
+  replicas: {{ k8s_pod_replicas }}
+  revisionHistoryLimit: 5
+  strategy:
+    rollingUpdate:
+      maxSurge: {{maxSurge|default('25%')}}
+      maxUnavailable: {{maxUnavailable|default('25%')}}
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "jvm"
+        prometheus.io/port: "{{java_agent_port}}"
+      labels:
+        app.kubernetes.io/name: mule
+        app: {{ k8s_pod_name }}
+        build_tag: {{ docker_image_tag }}
+    spec:
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: {{ docker_registry_key }}
+{% endif %}
+{% if k8s_nodeAffinity == true %}
+      affinity:
+        nodeAffinity:
+          #硬策略
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: x.k8sNodeEnv
+                operator: In
+                values:
+                - all
+                - {{env}}
+{% endif %}
+{% if k8s_mount_log_file_storage == true %}
+      #init log dir
+      initContainers:
+      - name: init-pod
+        image: {{ deploy_repository_url }}/{{ deploy_public_category }}bash:5.1.4
+        volumeMounts:
+        - name: log
+          mountPath: /opt/mule/logs
+          subPath: {{ k8s_pod_name }}
+        command:
+        - bash
+        - -c
+        - |
+          chown 999:999 -R /opt/mule/logs
+          chmod 766 /opt/mule/logs
+{% endif %}
+
+      containers:
+      - name: {{ k8s_pod_name }}
+        image: "{{ deploy_repository_url }}/{{ deploy_repository_category }}{{ docker_image_name }}:{{ docker_image_tag }}"
+        imagePullPolicy: Always
+{#- #注释annotation 
+        command:
+        - bash
+        - -c
+        - |
+          tail -f /etc/hosts
+#} 
+        env:
+        - name: TZ
+          value: {{ TZ | default('Asia/Shanghai') }}
+        - name: Xmx
+          value: '{{ xmx }}'
+        - name: Xms
+          value: '{{ xms3 }}'
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        lifecycle: 
+          postStart: 
+            exec: 
+              command: 
+              - bash
+              - -c
+              - |
+                find /opt/conf/ -type f |sed 's@.*@ ln -fs & /opt/mule/conf/ @g' |sh
+                date
+        volumeMounts:
+        - name: config
+          mountPath: /opt/conf
+          readOnly: true
+{% if k8s_mount_log_file_storage == true %}
+        - name: log
+          mountPath: /opt/mule/logs
+          subPath: {{ k8s_pod_name }}
+{% endif %}
+        resources:
+          requests:
+            cpu: {{ k8s_pod_resources_requests_cpu }}
+            memory: {{ k8s_pod_resources_requests_memory }}
+          limits:
+            cpu: {{ k8s_pod_resources_limits_cpu }}
+            memory: {{ k8s_pod_resources_limits_memory }}
+{% if k8s_pod_readinessProbe_type != 'nocheck' %}
+        #启动探测
+        startupProbe:
+{% if k8s_pod_readinessProbe_type == 'shell' %}
+          exec: 
+            command: 
+            - /opt/healtcheck.sh
+{% else %}
+          tcpSocket:
+            port: 8080
+{% endif %}
+          {# #最大启动时间10×30=300s -#} 
+          initialDelaySeconds: 50
+          periodSeconds: 10
+          failureThreshold: 30
+          timeoutSeconds: 5
+        #就绪探测
+        readinessProbe:
+{% if k8s_pod_readinessProbe_type == 'shell' %}
+          exec: 
+            command: 
+            - /opt/healtcheck.sh
+{% else %}
+          tcpSocket:
+            port: 8080
+{% endif %}
+          timeoutSeconds: 3
+          periodSeconds: {{ k8s_pod_readinessProbe_periodSeconds }}
+          successThreshold: 2
+          failureThreshold: {{ k8s_pod_readinessProbe_failureThreshold }}
+          initialDelaySeconds: {{ k8s_pod_livenessProbe_initialDelaySeconds }}
+        #存活探测
+        livenessProbe:
+{% if k8s_pod_readinessProbe_type == 'shell' %}
+          exec: 
+            command: 
+            - /opt/healtcheck.sh
+{% else %}
+          tcpSocket:
+            port: 8080
+{% endif %}
+          {# #启动等待 -#} 
+          initialDelaySeconds: {{ k8s_pod_livenessProbe_initialDelaySeconds }}
+          {# #超时 -#} 
+          timeoutSeconds: 4
+          {# #探测频率 -#} 
+          periodSeconds: {{ k8s_pod_readinessProbe_periodSeconds +2 }}
+          {# #连续探测n次成功表示成功 -#} 
+          successThreshold: 1
+          {# #连续探测n次失败表示失败 -#} 
+          failureThreshold: {{ k8s_pod_readinessProbe_failureThreshold + 2 }}
+{% endif %}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: config
+        configMap:
+          name: {{ k8s_pod_name }}-config
+{% if k8s_mount_log_file_storage == true %}
+      - name: log
+        persistentVolumeClaim:
+          claimName: {{ k8s_log_pvc.name }}
+{% endif %}
+
+{% if k8s_hpa_enabled == true  and item not in pod_not_hpa %}
+---
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ item }}
+  namespace: {{ namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ item }}
+  minReplicas: {{ k8s_pod_replicas }}
+  maxReplicas: {{ k8s_pod_replicas +3 }}
+  metrics:
+    - type: Pods
+      pods:
+        metric:
+          name: memory_limit_usage
+        target:
+          type: AverageValue
+          averageValue: 90
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+{% endif %}

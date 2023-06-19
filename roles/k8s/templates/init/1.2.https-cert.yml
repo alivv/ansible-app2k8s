@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: https-crt
+  namespace: {{ namespace }}
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ https_crt }}
+  tls.key: {{ https_key }}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: https-crt
+  namespace: kube-system
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ https_crt }}
+  tls.key: {{ https_key }}

@@ -1,0 +1,155 @@
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ minio.name }}
+  namespace: {{ namespace }}
+  labels:
+    app: {{ minio.name }}
+    env: {{ env }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ minio.name }}
+    env: {{ env }}
+  ports:
+  - name: minio
+    port: 9000
+    targetPort: 9000
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ minio.name }}
+  namespace: {{ namespace }}
+spec:
+  serviceName: {{ minio.name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ minio.name }}
+      env: {{ env }}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
+        prometheus.io/path: "/minio/prometheus/metrics"
+      labels:
+        app.kubernetes.io/name: minio
+        app: {{ minio.name }}
+        env: {{ env }}
+    spec:
+      securityContext:
+        runAsUser: 0
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: {{ docker_registry_key }}
+{% endif %}
+{% if k8s_nodeAffinity == true %}
+      affinity:
+        nodeAffinity:
+          {# #硬策略  -#} 
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: x.k8sNodeEnv
+                operator: In
+                values:
+                - all
+                - {{env}}
+{% endif %}
+      # terminationGracePeriodSeconds: 15
+      containers:
+      - name: {{ minio.name }}
+        image: "{{ deploy_repository_url }}/{{ deploy_public_category }}minio:{{ minio.tag }}"
+        imagePullPolicy: IfNotPresent
+        workingDir: /data
+        command:
+        - "/opt/bitnami/minio/bin/minio"
+        args:
+        - "server"
+        - "/data"
+        volumeMounts:
+        - name: datadir
+          mountPath: /data
+          subPath: {{ minio.name }}      
+          readOnly: false
+        - mountPath: "/etc/localtime"
+          name: localtime
+          readOnly: true
+        ports:
+        - containerPort: 9000
+          name: minio
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+          # tcpSocket:
+          #   port: 9000
+          initialDelaySeconds: 10
+          timeoutSeconds: 2
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          # tcpSocket:
+          #   port: 9000
+          initialDelaySeconds: 20
+          failureThreshold: 3
+          periodSeconds: 10
+          timeoutSeconds: 2
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: {{ minio.user }}
+        - name: MINIO_SECRET_KEY
+          value: {{ minio.pwd }}
+        - name: MINIO_PROMETHEUS_AUTH_TYPE
+          value: public
+        - name: TZ
+          value: "{{ TZ | default('Asia/Shanghai') }}"
+        - name: TIME_ZONE
+          value: "{{ TZ | default('Asia/Shanghai') }}"
+        resources:
+          requests:
+            cpu: {{ minio.requests_cpu }}
+            memory: {{ minio.requests_ram }}
+          limits:
+            cpu: {{ minio.limits_cpu }}
+            memory: {{ minio.limits_ram }}
+        lifecycle: 
+          postStart: 
+            exec: 
+              command: 
+              - bash
+              - -c 
+              - |
+                date
+                echo "alias ll='ls -hl --color=auto'" >>~/.bashrc
+{% if TZ|default('Asia/Shanghai') == "Asia/Shanghai" %}
+                sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list
+                sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list
+                sed -i 's/deb.debian.org/mirrors.aliyun.com/g'     /etc/apt/sources.list
+                sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
+{% endif %}
+                #apt update
+                echo "apt install -y --no-install-recommends net-tools curl jq vim-tiny inetutils-ping" >/opt/install.sh
+
+      volumes:
+      - name: localtime
+        hostPath:
+          path: /etc/localtime
+      - name: datadir
+        persistentVolumeClaim:
+          claimName: {{ k8s_data_pvc.name }}
+
+{# #doc
+#https://docs.min.io/docs/minio-gateway-for-nas.html
+#http://docs.minio.org.cn/docs/master/how-to-monitor-minio-using-prometheus
+#https://grafana.com/grafana/dashboards/12063
+#https://blog.csdn.net/shykevin/article/details/107196450
+# #}

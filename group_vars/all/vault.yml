@@ -1,0 +1,5 @@
+---
+
+vault_health_check_username: check
+vault_health_check_password: HealthCheckPWD
+

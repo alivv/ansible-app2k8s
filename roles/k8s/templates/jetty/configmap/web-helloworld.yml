@@ -1,0 +1,47 @@
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ k8s_pod_name }}-config
+  namespace: {{ namespace }}
+data:
+  applicationProperties: |-
+
+    server.port=8080
+    server.servlet.context-path=/
+{% if env != 'prod' %}
+    app.env=dev
+{% else %}
+    app.env=prod
+{% endif %}
+
+
+  log4j2: |-
+
+    Configuration:
+    status: info
+
+    Appenders:
+      Console:
+        name: Console
+        target: SYSTEM_OUT
+        PatternLayout:
+          Pattern: "%d %p %t %c - %m%n"
+      RollingFile:
+      - name: rollingFile
+        fileName: /var/log/{{ k8s_pod_name }}/${env:HOSTNAME}.log
+        filePattern: /var/log/{{ k8s_pod_name }}/${env:HOSTNAME}.%d{yyyy-MM-dd}.log
+        Policies:
+        - TimeBasedTriggeringPolicy:
+            interval: 1
+        append: true
+        PatternLayout:
+          Pattern: "%d %p %t %c - %m%n"
+    Loggers:
+      Root:
+        value: all
+        level: info
+        AppenderRef:
+          - ref: rollingFile
+          - ref: Console

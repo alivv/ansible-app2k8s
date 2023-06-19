@@ -1,0 +1,15 @@
+[prod:children]
+k8s
+k8s-node
+docker-builder
+
+[k8s:children]
+docker-builder
+k8s-node
+
+
+[docker-builder]
+docker-build        ansible_ssh_host=192.168.22.100
+
+[k8s-node]
+#k8s-node1           ansible_ssh_host=192.168.23.30

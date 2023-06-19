@@ -1,0 +1,25 @@
+FROM alpine:3.16
+
+ENV KUBE_VERSION=1.24.12
+
+# RUN apk add --update --no-cache ca-certificates bash \
+#  && apk add --update --no-cache -t deps curl \
+#  && curl -L https://dl.k8s.io/release/v${KUBE_VERSION}/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl \
+#  && chmod +x /usr/local/bin/kubectl \
+#  && apk del --purge deps 
+
+RUN date ; \
+    #install kubectl
+    sed -i.bak s/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g /etc/apk/repositories ; \
+    apk add --no-cache ca-certificates bash curl jq  ; \
+    wget https://dl.k8s.io/release/v${KUBE_VERSION}/bin/linux/amd64/kubectl -O /usr/local/bin/kubectl && \
+    chmod +x /usr/local/bin/kubectl ; \
+    kubectl version --short ;
+
+WORKDIR /root
+# ENTRYPOINT ["kubectl"]
+CMD ["kubectl"]
+
+# docker build --no-cache -t kubectl:1.22.12 -f dockerfile.kubectl.sh .
+
+# docker build --no-cache -t registry.cn-hangzhou.aliyuncs.com/elvin/kubectl:1.22.12 -f dockerfile.kubectl.sh .

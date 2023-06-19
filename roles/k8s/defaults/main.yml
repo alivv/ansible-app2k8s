@@ -1,0 +1,58 @@
+---
+#default vers
+
+docker_build_jdk_version: '8'
+
+properties_path: 'spring'
+
+app_tag_dir: ''
+# app_tag_dir: "{{ docker_image_tag }}/"
+
+healthcheck_user: ''
+healthcheck_pswd: ''
+
+baselist: ''
+pushlist: ''
+initlist: ''
+applist: ''
+ingress_rules: ''
+ingress: "{{ ingress_rules }}"
+ingresslist: "{{ ingress_rules }}"
+
+push_list:
+- bash
+
+init_list: 
+- 1.1.namespace.yml
+# app_list: ''
+
+app_list:
+- app-v1
+
+k8s_configmap_enabled: false
+k8s_ingress_enabled: false
+k8s_service_enabled: true
+k8s_log_pvc_add: true
+k8s_config_profiles_active_env: false
+k8s_pod_readinessProbe_httpType: text
+docker_build_service_type: ''
+
+
+#deployment
+docker_registry_key: ''
+k8s_nodeAffinity: false
+k8s_revisionHistoryLimit: 5
+k8s_hpa_enabled: false
+
+java_agent_port: 9123
+java_agent: jmx_prometheus_javaagent-0.16.1.jar
+
+podSubnet: 
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+
+
+#cluster-name for aws
+aws_k8s_name: aws-k8s
+

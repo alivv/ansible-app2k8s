@@ -1,0 +1,214 @@
+#######################################
+# Variables for k8s
+
+env: dev
+k8s_env: kubeadm
+k8s_version: 1.22.16
+namespace: k8s-dev
+k8s_hpa_enabled: false
+
+#domain name
+k8s_ingress_app_domain_name: app2k8s-demo.elvin.vip
+
+#deployment
+k8s_nodeAffinity: false
+k8s_revisionHistoryLimit: 5
+
+docker_registry_key: docker-image-key
+docker_registry_config_json: ewoJImF1dGhzIjogewoJCSJodWIuZWx2aW4udmlwIjogewoJCQkiYXV0aCI6ICJZV1J0YVc0NlpHOWphMlZ5IgoJCX0KCX0KfQ==
+# #get registry_config_json
+# cat ~/.docker/config.json |base64 -w0
+
+# kubectl create secret generic docker-image-key --from-file=.dockerconfigjson=/root/.docker/config.json --type=kubernetes.io/dockerconfigjson
+# kubectl get secret docker-image-key -oyaml
+# kubectl delete secret docker-image-key
+
+#https for ingress
+# cat https.cert |base64 -w0
+# move to vault
+
+k8s_monitor_pvc:
+  fsid: "xxx"
+  name: "monitor-data"
+  resources_requests: 1000Gi
+  # server: 192.168.23.45
+  server: "{{deploy_yml_node}}"
+  path: "/data/nfs/monitor"
+
+k8s_log_pvc:
+  fsid: "xxx"
+  name: "{{ namespace }}-log"
+  resources_requests: 2000Gi
+  server: "{{deploy_yml_node}}"
+  path: "/data/nfs/{{ namespace }}-log"
+
+k8s_data_pvc:
+  fsid: "xxx"
+  name: "{{ namespace }}-data"
+  resources_requests: 2000Gi
+  server: "{{deploy_yml_node}}"
+  path: "/data/nfs/{{ namespace }}-data"
+
+
+#kubectl run node
+kubectl_node: 192.168.23.45
+kubectl:      /usr/local/bin/kubectl-{{ k8s_version }}
+kubeconfig:   /usr/local/etc/kubeconfig-{{env}}.yml
+
+#Yml file storage node
+deploy_yml_node: 192.168.23.45
+deploy_yml_port: 86
+deploy_yml_dir:  "/data/www"
+deploy_yml_url: http://{{deploy_yml_node}}:{{deploy_yml_port}}
+
+build_dir: "/data/dockerfile"
+docker_build_base_dir: "/data/dockerfile/base"
+
+
+#local repository
+local_repository_ip: 192.168.23.45
+local_repository_url: hub.elvin.vip
+# local_repository_url: "{{registry_domain_name}}"
+local_repository_category: "elvin/"
+local_public_category: "other/"
+
+#push repository
+push_repository_url: hub.elvin.vip
+# push_repository_url: registry.cn-shanghai.aliyuncs.com
+push_repository_category: "elvin/"
+push_public_category: "elvin/"
+
+#deploy repository
+deploy_repository_url: hub.elvin.vip
+deploy_repository_category: "elvin/"
+deploy_public_category: "other/"
+
+release_download_url: "http://files.elvin.vip/demo"
+binary_download_url: "http://files.elvin.vip/download"
+
+java_agent_port: 9123
+java_agent: jmx_prometheus_javaagent-0.16.1.jar
+
+initlist: '{{ init_list }}'
+init_list:
+#init
+- 1.1.namespace.yml
+- 1.2.https-cert.yml
+- 1.2.registry-key.yml
+- 1.3.cert-manager-v1.9.2.yaml
+- 1.3.cert-ssl-issuer.yml
+# - 1.3.aws-eks-efs-csi.1.4.yaml
+# - 1.3.aws-load-balancer-controller.2.4.2.yaml
+# - 1.4.pvc-data-ali.yml
+# - 1.4.pvc-data-aws.yml
+# - 1.4.pvc-data-azure.yml
+# - 1.4.pvc-data-tencent.yml
+- 1.4.pvc-data-nfs.yml
+- 1.5.job-log-clear.yml
+# - 2.1.ingress-nginx-aliyun-v1.2.1.yaml
+# - 2.1.ingress-nginx-aws-nlb.v1.3.0.yml
+- 2.1.ingress-nginx-v1.3.0.yaml
+# - 2.1.ingress-slb-azure.yaml
+# - 2.1.ingress-slb-tencent.yaml
+
+#ops
+- 2.3.permission-manager.yml
+# - 2.3.kubernetes-dashboard.2.5.1.yml
+- 2.3.kubernetes-dashboard-ingress.yml
+- 2.3.ops-k8s-kubepi-role.yml
+- 2.3.ops-k8s-kubepi.yml
+
+#StatefulSet
+# - 3.data-cassandra-standone.yml
+# - 3.data-minio-standone.yml
+# - 3.data-rabbitmq-standone.yml
+- 3.data-redis-standone.yml
+# - 3.data-zookeeper-standone.yml
+# - 3.data-zookeeper-cluster.yml
+
+
+ingress_rules:
+- ingress-dev.yml
+
+podSubnet: 
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+
+# push_list:
+# - bash
+
+push_list: "{{ push__list }}"
+
+#########################################
+#about data
+
+redis:
+  name: "{{ env }}-redis"
+  tag: 5.0.14-alpine
+  exporter_tag: v1.46.0-alpine
+  requests_cpu: 100m
+  requests_ram: 128Mi
+  limits_cpu: 1000m
+  limits_ram: 1024Mi
+
+rabbitmq:
+  name: "{{ env }}-rabbitmq"
+  tag: 3.8.22-management
+  requests_cpu: 100m
+  requests_ram: 128Mi
+  limits_cpu: 1000m
+  limits_ram: 1024Mi
+  user: rabbitmq
+  pwd: mqdemo
+  cookie: VRK56cUsLmlSNpFuX0fke/6RfhwfSEB1ertkSX9Rmtg=
+# Erlang cookie # openssl rand -base64 32
+
+zookeeper:
+  name: "{{ env }}-zookeeper"
+  tag: 3.4
+  requests_cpu: 100m
+  requests_ram: 1024Mi
+  limits_cpu: 1000m
+  limits_ram: 2Gi
+  gcpu: 2
+
+cassandra:
+  name: "{{ env }}-lbsdb"
+  tag: 2.1.22
+  requests_cpu: 200m
+  requests_ram: 1024Mi
+  limits_cpu: 1000m
+  limits_ram: 1024Mi
+
+minio:
+  mode: server
+  name: "{{ env }}-minio"
+  tag: 2020
+  requests_cpu: 200m
+  requests_ram: 800Mi
+  limits_cpu: 800m
+  limits_ram: 1024Mi
+  user: minio
+  pwd: testminio
+
+
+#########################################
+#db
+
+db_pg_host: 10.20.1.8
+db_pg_port: 5432
+
+
+dblist:
+  test:
+    name: test
+    user: "{{ db_test_user }}"
+    pwd: "{{ db_test_pwd }}"
+
+
+#########################################
+
+#########################################
+#########################################
+#########################################

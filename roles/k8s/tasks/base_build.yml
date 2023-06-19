@@ -1,0 +1,60 @@
+---
+
+- name: "print dockerfile and image"
+  debug:
+    msg:
+        - "dockerfile.{{ item }}"
+        - "{{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}"
+  tags: base,base-build,base-dockerfile
+
+- name: "create dir for base-build"
+  file:
+    state:    directory
+    path:     "{{ docker_build_base_dir }}/{{ docker_image_name }}/"
+  tags: never,base-dockerfile,base-build
+
+- name: "Upload dockerfile for base-build"
+  template:
+    src: "base/dockerfile.{{ item }}"
+    dest: "{{ docker_build_base_dir }}/{{ docker_image_name }}/"
+  tags: never,base-build,base-dockerfile
+
+- name: "Add files for dockerfile"
+  template:
+    src: "base/{{ copy_files }}"
+    dest: "{{ docker_build_base_dir }}/{{ docker_image_name }}/"
+  tags: never,base-build,base-dockerfile
+  when: docker_image_name in base_build_add_file
+  loop_control:
+    loop_var: copy_files
+  with_items: "{{ base_build_add_file[docker_image_name] }}"
+
+- name: rmi for base-build
+  docker_image:
+    state: absent
+    force: yes
+    name: "{{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}"
+    tag: "{{ docker_image_tag }}"
+  tags: never,base-rmi
+
+- name: build and push for base-build
+  docker_image:
+    path: "{{ docker_build_base_dir }}/{{ docker_image_name }}/"
+    dockerfile: "dockerfile.{{ item }}"
+    name: "{{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}"
+    tag: "{{ docker_image_tag }}"
+    push: yes
+    rm: yes
+    nocache: yes
+  tags: never,base-build
+
+- name: push base-image to {{ push_repository_url }}/{{ push_public_category }} 
+  docker_image:
+    name: "{{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}"
+    repository: "{{ push_repository_url }}/{{ push_public_category }}{{ docker_image_name }}:{{ docker_image_tag }}"
+    push: yes
+    force: yes
+  tags: never,base-push
+
+
+#https://docs.ansible.com/ansible/2.7/modules/docker_image_module.html

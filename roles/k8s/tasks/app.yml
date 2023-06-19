@@ -1,0 +1,25 @@
+---
+
+- name: "include app variables for {{ item }}"
+  include_vars:
+    file: "group_vars/{{ env }}/k8s_apps/{{ item }}.yml"
+  # when: item is search("^app-|^web-")
+  when: not item is search("^ms")
+  tags:
+    - always
+
+- name: "include ms var for {{ item }}"
+  include_vars:
+    file: "vars/ms.yml"
+  when: item is search("^ms-")
+  tags:
+    - always
+
+- name: "include buid"
+  include: app_build.yml
+  when: docker_build_service_type != ''
+
+- name: "include deploy"
+  include: app_deploy.yml
+  when: docker_build_service_type != ''
+

@@ -1,0 +1,593 @@
+#prometheus-config.yaml
+#配置prometheus
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: {{monitor_namespace}}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      scrape_timeout: 15s
+
+    # Alertmanager配置
+    alerting:
+      alertmanagers:
+      - static_configs:
+        - targets: ["alertmanager:9093"]
+    # rule配置
+    rule_files:
+    - "/etc/prometheus/rules.*yaml"
+
+    scrape_configs:
+
+    - job_name: 'prometheus'
+      static_configs:
+      - targets: ['localhost:9090']
+
+    - job_name: 'kubernetes-nodes'
+      kubernetes_sd_configs:
+      - role: node
+      relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*):10250'
+        replacement: '${1}:9100'
+        target_label: __address__
+        action: replace
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+
+    - job_name: 'kubernetes-kubelet'
+      kubernetes_sd_configs:
+      - role: node
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        insecure_skip_verify: true
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+
+    - job_name: 'kubernetes-cadvisor'
+      kubernetes_sd_configs:
+      - role: node
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        insecure_skip_verify: true
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /metrics/cadvisor
+      - source_labels: [instance]
+        separator: ;
+        regex: (.+)
+        target_label: node
+        replacement: $1
+        action: replace
+
+    - job_name: 'kubernetes-apiservers'
+      kubernetes_sd_configs:
+      - role: endpoints
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+    - job_name: "kube-state-metrics"
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      # - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scraped]
+      #   action: keep
+      #   regex: true
+      - source_labels:  ["__meta_kubernetes_pod_container_name"]
+        regex: "^kube-state-metrics.*"
+        action: keep
+      - action: labelmap
+        regex: __meta_kubernetes_service_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        action: replace
+        target_label: service_name
+      - source_labels: [__meta_kubernetes_pod_ip]
+        regex: (.+)
+        target_label: __address__
+        replacement: ${1}:8080
+
+    #svc自动发现#
+    - job_name: 'kubernetes-service-endpoints'
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
+        action: replace
+        target_label: __scheme__
+        regex: (https?)
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+      - action: labelmap
+        regex: __meta_kubernetes_service_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        action: replace
+        target_label: kubernetes_name
+        #排除#
+      - source_labels:  ["__meta_kubernetes_pod_container_name"]
+        regex: "(node-exporter|prometheus|kube-state-metrics)"
+        action: drop
+
+    #Pod metrics #scrape=true
+    - job_name: 'kubernetes-pods'
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - action: keep
+        regex: true
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_scrape
+      - action: replace
+        regex: (.+)
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_path
+        target_label: __metrics_path__
+      - action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        source_labels:
+        - __address__
+        - __meta_kubernetes_pod_annotation_prometheus_io_port
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_namespace
+        target_label: namespace
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_name
+        target_label: pod
+
+    #Pod metrics #scrape=jvm
+    - job_name: 'jmx_exporter'
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - action: keep
+        regex: jvm
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_scrape
+      - action: replace
+        regex: (.+)
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_path
+        target_label: __metrics_path__
+      - action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        source_labels:
+        - __address__
+        - __meta_kubernetes_pod_annotation_prometheus_io_port
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_namespace
+        target_label: namespace
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_name
+        target_label: pod
+
+{% if env == 'test'  %}
+    - job_name: 'vm-nodes'
+      static_configs:
+{% for host in groups['postgresql'] %}
+      - targets: ['{{ hostvars[host]['ansible_ssh_host'] }}:9100']
+        labels:
+          instance: {{ host }}
+      - targets: ['{{ hostvars[host]['ansible_ssh_host'] }}:9187']
+        labels:
+          instance: {{ host }}
+{% endfor %}
+{% for host in groups['vm'] %}
+      - targets: ['{{ hostvars[host]['ansible_ssh_host'] }}:9100']
+        labels:
+          instance: {{ host }}
+{% endfor %}
+{% endif %}
+
+{%raw%}
+  rules.linux.yaml: |
+    groups:
+    - name: linux
+      rules:
+
+      - alert: InstanceDown
+        expr: up{job != "jmx_exporter"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Instance been down"
+          description: "Node down"
+
+      - alert: Memory usage too high
+        expr: round(100- node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes*100) > 90
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memory usage too high"
+          description: "Memory usage {{ $value }}%"
+
+      - alert: CPU usage is too high
+        expr: round(100 - ((avg by (instance,job)(irate(node_cpu_seconds_total{mode="idle"}[5m]))) *100)) > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU usage is too high"
+          description: "CPU usage {{ $value }}%"
+
+      - alert: "Disk usage too high"
+        expr: round(100-100*(node_filesystem_avail_bytes{fstype=~"ext4|xfs"} / node_filesystem_size_bytes{fstype=~"ext4|xfs"})) > 90
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk usage too high"
+          description: "{{$labels.mountpoint}}: {{ $value }}%"
+
+      - alert: "Disk space is too low"
+        expr: round(node_filesystem_avail_bytes{fstype=~"ext4|xfs",mountpoint!="/boot",instance!~".*master.*"}/1024/1024/1024) < 10
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space is too low"
+          description: "disk partition {{$labels.mountpoint}}: {{ $value }}GB"
+
+#
+  rules.k8s.yaml: |
+    groups:
+    - name: k8s
+      rules:
+
+      - alert: apiserversDown
+        expr: absent(up{job="kubernetes-apiservers"} == 1)
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "apiservers been down"
+          description: "has been down "
+
+      - alert: KubeSchedulable
+        expr: sum(kube_node_spec_unschedulable) by (node) > 0
+        for: 5m
+        labels:
+          severity: warning
+          instance: "{{$labels.node}}"
+        annotations:
+          summary: "Node unschedulable"
+          description: "unschedulable"
+
+      - alert: KubeNodeNotReady
+        expr: sum(kube_node_status_condition{condition="Ready",status="true"} ) by (node) == 0
+        for: 1m
+        labels:
+          severity: warning
+          instance: "{{$labels.node}}"
+        annotations:
+          summary: "Node not ready"
+          description: "Kube Node Not Ready"
+
+      - alert: NodeOverQuota
+        expr: sum(kube_node_status_condition{condition=~"OutOfDisk|MemoryPressure|DiskPressure",status!="false"}) by (condition,node) == 1
+        for: 1m
+        labels:
+          severity: warning
+          instance: "{{$labels.node}}"
+        annotations:
+          summary: "{{$labels.condition}}"
+          description: "Over Quota"
+
+      - alert: PVC-Failed
+        expr: sum(kube_persistentvolumeclaim_status_phase{phase="Failed"}) by (namespace,persistentvolumeclaim) == 1
+        for: 5m
+        labels:
+          severity: warning
+          instance: "PersistentVolumeClaim"
+        annotations:
+          summary: "PVC Failed"
+          description: "env:{{$labels.namespace}}  {{$labels.persistentvolumeclaim}}"
+
+      - alert: PV-Errors
+        expr: sum(kube_persistentvolume_status_phase{phase=~"Failed|Pending"} ) by (persistentvolume) > 0
+        for: 1m
+        labels:
+          severity: warning
+          instance: "PersistentVolume"
+        annotations:
+          description: "PV errors"
+          summary: "env:{{$labels.namespace}}  {{$labels.persistentvolumeclaim}}"
+  
+      - alert: PVC-Usage
+        expr: round(max(kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes *100)  by (namespace,persistentvolumeclaim)) > 90
+        for: 1m
+        labels:
+          severity: warning
+          instance: "PVC-Usage"
+        annotations:
+          summary: "env:{{$labels.namespace}} {{$labels.persistentvolumeclaim}} {{ $value }}%"
+          description: "PVC usage too high"
+
+      - alert: StatefulSetReplicas
+        expr: sum(( kube_statefulset_status_replicas_ready != kube_statefulset_status_replicas) and ( changes(kube_statefulset_status_replicas_updated[5m]) == 0 )) by (namespace,statefulset)
+        for: 15m
+        labels:
+          severity: warning
+          instance: "StatefulSet"
+        annotations:
+          summary: "env:{{$labels.namespace}} {{$labels.statefulset}}"
+          description: "StatefulSet Replicas error"
+
+      - alert: DeploymentReplicas
+        expr: sum(( kube_deployment_spec_replicas != kube_deployment_status_replicas_available ) and ( changes(kube_deployment_status_replicas_updated[5m]) == 0 )) by (namespace,deployment)
+        for: 15m
+        labels:
+          severity: warning
+          instance: "Deployment"
+        annotations:
+          summary: "env:{{$labels.namespace}} {{$labels.deployment}}"
+          description: "Deploy Replicas {{ $value }} error"
+
+#
+  rules.pod.yaml: |
+    groups:
+    - name: pod
+      rules:
+
+      - alert: pod_status
+        expr: sum by(namespace, pod, phase) (kube_pod_status_phase{phase!~"Running|Succeeded"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "Pod not running"
+          description: "env:{{$labels.namespace}} {{$labels.pod}} {{$labels.phase}}"
+
+      - alert: pod_cpu
+        expr: round(sum(rate(container_cpu_usage_seconds_total{image!=""}[1m])) by (namespace,pod,instance) / (sum(container_spec_cpu_quota{image!=""}/100000) by (namespace,pod,instance)) * 100) > 95
+        for: 5m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "Pod CPU usage is too high"
+          description: "env:{{$labels.namespace}} {{$labels.pod}} {{ $value }}%"
+
+      - alert: pod_ram
+        expr: round(sum(container_memory_working_set_bytes{image!=""}) by(namespace,pod,instance,container) / sum(container_spec_memory_limit_bytes{image!=""}) by(namespace,pod,instance,container) * 100  != +inf ) > 95
+        for: 5m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "Pod memory usage is too high"
+          description: "{{$labels.namespace}} {{$labels.pod}} {{ $value }}%"
+
+      - alert: pod_restart
+        expr: sum (increase (kube_pod_container_status_restarts_total{job="kube-state-metrics"}[10m])) by (namespace,pod,instance) >0
+        for: 10m
+        labels:
+          severity: warning
+          instance: "{{$labels.container}}"
+        annotations:
+          summary: "Pod restart failure"
+          description: "{{$labels.namespace}} {{$labels.pod}} "
+
+#
+  rules.jvm.yaml: |
+    groups:
+    - name: jvm
+      rules:
+
+      # 堆空间使用超过90%
+      - alert: HeapUsageTooMuch
+        expr: jvm_memory_bytes_used{area="heap"} / jvm_memory_bytes_max * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "{{ $labels.instance }} heap Usage > 90%"
+          description: "ns:{{ $labels.namespace }} pod:{{ $labels.pod }} \n  堆内存使用率>90%，当前值({{ $value }}%)"
+
+      # 非堆内存使用超过80%
+      - alert: NonheapUsageTooMuch
+        expr: jvm_memory_bytes_used{area="nonheap"} / jvm_memory_bytes_max * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "{{ $labels.app }} Non-heap Usage > 80%"
+          message: "ns:{{ $labels.namespace }} pod:{{ $labels.pod }} \n  非堆内存使用率>80%，当前值({{ $value }}%)"
+
+      # 在5分钟里,GC花费时间超过30%
+      - alert: GcTimeTooMuch
+        expr: increase(jvm_gc_collection_seconds_sum[5m]) > 60
+        for: 10m
+        labels:
+          severity: red
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "GC时间占比超过30%"
+          message: "ns:{{ $labels.namespace }} pod:{{ $labels.pod }} \n  GC时间占比超过30%，当前值({{ $value }}%)"
+
+      # # GC次数太多
+      # - alert: GcCountTooMuch
+      #   expr: increase(jvm_gc_collection_seconds_count[5m]) > 60
+      #   for: 10m
+      #   labels:
+      #     severity: warning
+      #   annotations:
+      #     summary: "{{ $labels.app }} 10分钟GC次数>30次"
+      #     message: "ns:{{ $labels.namespace }} pod:{{ $labels.pod }} \n  10分钟GC次数>60次,当前值({{ $value }})"
+
+      # # FGC次数太多
+      # - alert: FgcCountTooMuch
+      #   expr: increase(jvm_gc_collection_seconds_count{gc="ConcurrentMarkSweep"}[1h]) > 10
+      #   for: 10m
+      #   labels:
+      #     severity: warning
+      #   annotations:
+      #     summary: "{{ $labels.app }} 1小时的FGC次数>10次"
+      #     message: "ns:{{ $labels.namespace }} pod:{{ $labels.pod }} \n  1小时的FGC次数>10次,当前值({{ $value }})"
+
+#
+  rules.redis.yaml: |
+    groups:
+    - name: redis
+      rules:
+
+      - alert: redis_Down
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "Redis down"
+          description: "Redis has been down \n {{$labels.namespace}} {{$labels.pod}}"
+
+      - alert: RedisMissingBackup
+        expr: time() - redis_rdb_last_save_timestamp_seconds > 60 * 60 * 24
+        for: 5m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "Redis Missing backup"
+          description: "Redis has not been backuped for 24 hours\n {{$labels.namespace}} {{$labels.pod}}"    
+
+      - alert: RedisMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "Resdis memory usage is too high"
+          description: "{{$labels.namespace}} {{$labels.pod}}\nResdis memory usage is {{ $value }}%"
+
+      - alert: redis_rejected_connections
+        expr: increase(redis_rejected_connections_total[1m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "Redis rejected connections {{ $value }}"
+          description: "{{$labels.namespace}} {{$labels.pod}}"
+
+#
+  rules.rabbitmq.yaml: |
+    groups:
+    - name: rabbitmq
+      rules:
+
+      - alert: Rabbitmq_memory_usage
+        expr: round(rabbitmq_process_resident_memory_bytes / rabbitmq_resident_memory_limit_bytes * 100) > 90
+        for: 1m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "Rabbitmq memory usage too high"
+          description: "ns:{{ $labels.namespace }} pod:{{ $labels.pod }} \n  Memory usage {{ $value }}%"
+
+      - alert: Rabbitmq_queue_unacked
+        expr: rabbitmq_queue_messages_unacked > 10
+        for: 3m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "Rabbitmq queue messages unacked >10"
+          description: "ns:{{ $labels.namespace }} pod:{{ $labels.pod }} \n  Rabbitmq queue messages unacked {{ $value }}"
+
+      - alert: rabbitmq_queue_messages_ready
+        expr: rabbitmq_queue_messages_ready > 1000
+        for: 3m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "Rabbitmq queue messages ready >1000"
+          description: "ns:{{ $labels.namespace }} pod:{{ $labels.pod }} \n  Rabbitmq queue messages ready {{ $value }}"
+
+#
+  rules.cassandra.yaml: |
+    groups:
+    - name: cassandra
+      rules:
+
+      - alert: cassandra-dropped-message
+        expr: increase(cassandra_droppedmessage_dropped_count[1m]) > 0
+        for: 3m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "cassandra dropped message {{ $value }}"
+          description: "ns:{{ $labels.namespace }} pod:{{ $labels.pod }}"
+
+#
+  rules.minio.yaml: |
+    groups:
+    - name: minio
+      rules:
+
+      - alert: minio-s3_errors
+        expr: round(sum(increase(s3_errors_total[1m])) by (pod)) > 10
+        for: 5m
+        labels:
+          severity: warning
+          instance: "{{$labels.pod}}"
+        annotations:
+          summary: "minio-s3_errors {{ $value }}"
+          description: "ns:{{ $labels.namespace }} pod:{{ $labels.pod }}"
+
+#
+{%endraw%}

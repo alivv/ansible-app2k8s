@@ -1,0 +1,48 @@
+---
+
+- name: push list
+  debug:
+    msg:
+        - "pushlist: #{{ push_list |length }}"
+        - "{{ push_list }}"
+  delegate_to: localhost
+  tags: never,pushlist
+
+#push to local repository
+- name: "push public image to local registry {{ local_repository_url }}/{{ local_public_category }}"
+  docker_image:
+    name: "{{ public_image[item].url }}{{ public_image[item].name }}:{{ public_image[item].tag }}"
+    repository: "{{ local_repository_url }}/{{ local_public_category }}{{ public_image[item].name }}:{{ public_image[item].tag }}"
+    push: yes
+    force: yes
+  when: pushlist != '' and env == 'dev'
+  with_items: "{% if pushlist == 'all' %}{{ push_list }}{% else %}{{ pushlist }}{% endif %}"
+  tags: never,push
+
+#create a repository for AWS
+- name: "Creating a private repository for aws"
+  shell: |
+    . /etc/profile
+    #create repository
+    aws ecr create-repository --region {{ aws_region }} --repository-name {{ public_image[item].name }}
+    #Add policy to keep only 10 images
+    [ -f /tmp/aws-ecr-policy.json ] || { curl -so /tmp/aws-ecr-policy.json http://files.elvin.vip/demo/aws-ecr-policy-n10.json ; }
+    aws ecr put-lifecycle-policy --region {{aws_region}} \
+      --repository-name {{ public_image[item].name }} --lifecycle-policy-text file:///tmp/aws-ecr-policy.json
+    date
+  when: pushlist != '' and k8s_env == 'aws'
+  with_items: "{% if pushlist == 'all' %}{{ push_list }}{% else %}{{ pushlist }}{% endif %}"
+  changed_when: false
+  tags: never,push-aws
+
+#push to public repository
+- name: "pull public image to {{ push_repository_url }}/{{ push_public_category }}"
+  docker_image:
+    # name: "{{ public_image[item].url }}{{ public_image[item].name }}:{{ public_image[item].tag }}"
+    name: "{{ local_repository_url }}/{{ local_public_category }}{{ public_image[item].name }}:{{ public_image[item].tag }}"
+    repository: "{{ push_repository_url }}/{{ push_public_category }}{{ public_image[item].name }}:{{ public_image[item].tag }}"
+    push: yes
+    force: yes
+  when: pushlist != ''
+  with_items: "{% if pushlist == 'all' %}{{ push_list }}{% else %}{{ pushlist }}{% endif %}"
+  tags: never,push-to

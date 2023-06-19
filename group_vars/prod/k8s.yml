@@ -1,0 +1,9 @@
+#######################################
+# Variables for k8s
+
+env: prod
+k8s_env: ACK
+k8s_version: 1.22.16
+namespace: k8s-prod
+# k8s_hpa_enabled: false
+

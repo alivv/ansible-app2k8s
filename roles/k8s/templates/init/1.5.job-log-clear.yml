@@ -1,0 +1,58 @@
+---
+{% if k8s_version|default(1.18) * 100 < 122 %}
+apiVersion: batch/v1beta1
+{% else %}
+apiVersion: batch/v1
+{% endif %}
+kind: CronJob
+metadata:
+  name: job-log-clear
+  namespace: {{ namespace }}
+spec:
+  schedule: "1 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+{% if docker_registry_key|default('') != '' %}
+          imagePullSecrets:
+          - name: "{{ docker_registry_key }}"
+{% endif %}
+          containers:
+          - name: job-log-clear
+            image: {{ deploy_repository_url }}/{{ deploy_public_category }}bash:5.1.4
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+            - name: log
+              mountPath: "/var/log/k8s"
+            - mountPath: "/etc/localtime"
+              name: localtime
+              readOnly: true
+            command:
+            - bash
+            - -c
+            - |
+              s=$(date -u +%s)
+              S=$(($s + 28800))
+              date -d"@$s" +"%F %T UTC"
+              date -d"@$S" +"%F %T CST"
+              [ "{{env}}" = "prod" ] && { d=180 ; } || { d=3 ; }
+              n=$(find /var/log/k8s -type f -name *.log -mtime +$d |wc -l)
+              echo "Clean Up $n logs files from $d days ago"
+              find /var/log/k8s -type f -size 0c -delete
+              find /var/log/k8s -type f -mtime +$d -delete
+              find /var/log/k8s -type f -name "gc.*.log"  -o -name "vm.*.log" |xargs truncate -s 0
+              find /var/log/k8s -type f -mtime +0 -size +1k -name "*.log" |xargs gzip
+              date -d"@$S" +"%F %T CST"
+
+          volumes:
+          - name: localtime
+            hostPath:
+              path: /etc/localtime
+          - name: log
+            persistentVolumeClaim:
+              claimName: {{ k8s_log_pvc.name }}
+
+#doc
+#https://kubernetes.io/zh-cn/docs/concepts/workloads/controllers/cron-jobs/

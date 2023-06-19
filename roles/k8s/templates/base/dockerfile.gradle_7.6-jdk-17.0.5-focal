@@ -1,0 +1,33 @@
+FROM {{ local_repository_url }}/{{ base_category }}java:jdk-17.0.5-focal
+
+# {{ansible_date_time.date}}
+COPY dockerfile.{{ item }} /etc/dockerfile/
+
+ENV GRADLE_VERSION=7.6
+ENV GRADLE_HOME=/opt/gradle
+ENV PATH=$PATH:$GRADLE_HOME/bin
+
+RUN set -xe ; \
+    # install
+    sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/mirrors.aliyun.com/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list && \
+    apt-get update ; \
+    apt-get install -y unzip ; \
+    #gradle
+    cd /opt ; \
+    curl -ks -m 5 -o gradle.zip https://downloads.gradle-dn.com/distributions/gradle-${GRADLE_VERSION}-bin.zip && \
+    unzip -q gradle.zip && \
+    ln -nfs gradle-${GRADLE_VERSION} gradle  && \
+    rm -f gradle.zip && \
+    gradle -v ; \
+    # Clean
+    apt-get clean  && \
+    find /var/log/ -type f -delete && \
+    rm -rf /var/cache/apt/* /var/lib/apt/lists/* /tmp/* ;\
+
+# {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}
+# docker build --no-cache -t {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ docker_image_name }}_{{ docker_image_tag }} .
+
+#https://gradle.org/releases/
+#https://downloads.gradle-dn.com/distributions/gradle-7.6-bin.zip

@@ -1,0 +1,158 @@
+{% if monitor_pwd|default('') != '' %}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: monitor-basic-auth
+  namespace: {{ monitor_namespace }}
+type: Opaque
+data:
+  auth: {{ monitor_pwd }}
+{% endif %}
+
+---
+{% if k8s_version is version("1.19","<") %}
+apiVersion: extensions/v1beta1
+{% else %}
+apiVersion: networking.k8s.io/v1
+{% endif %}
+kind: Ingress
+metadata:
+  name: monitor-prometheus
+  namespace: {{ monitor_namespace }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-connections: '100'
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+{% if monitor_scheme == 'https' %}
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+{% if https_cert_base_name != 'https-crt' %}
+    cert-manager.io/cluster-issuer: "letsencrypt"
+{% endif %}
+{% endif %}
+{% if monitor_pwd|default('') != '' %}
+    #密码认证 Password authentication 
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: monitor-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required - elvin'
+{% endif %}
+{#- #注释annotation 
+    nginx.ingress.kubernetes.io/server-snippet: |
+
+        more_set_headers "Content-Security-Policy: frame-ancestors 'self'";
+        more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; always;";
+        more_set_headers "X-Frame-Options: sameorigin";
+
+        set $alert_deny 0;
+        if ($remote_addr !~* "^(10\\..*\\d|172\\.(1[6-9]|2\\d|3[0,1]).*\\d|192\\.168.*\\d|119.29.29.29)$"){
+          set $alert_deny "${alert_deny}1";
+        }
+        if ( $request_uri ~ "^/(api/v2/silences.*|api/v2/status|api/v1/status/config|targets|api/v1/targets.*|rules|flags|api/v1/status/flags|service-discovery.*|graph|graph.*|api/v1/query.*|api/*/admin/.*|/api/v1/write|api/v1/alertmanagers|api/v1/metadata.*|-/quit|-/reload|-/healthy)" ) {
+          set $alert_deny "${alert_deny}1";
+        }
+        if ( $alert_deny = "011" ) {
+          return 401;
+        }
+#} 
+
+spec:
+  tls:
+{% if monitor_scheme == 'https' %}
+  - hosts:
+      - {{prometheus_url}}
+      - {{alertmanager_url}}
+{% if https_cert_base_name == 'https-crt' %}
+    secretName: https-crt
+{% else %}
+    secretName: {{prometheus_url}}-ssl
+{% endif %}
+{% endif %}
+  rules:
+  - host: {{prometheus_url}}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+{% if k8s_version is version("1.19","<") %}
+          serviceName: prometheus
+          servicePort: 9090
+{% else %}
+          service:
+            name: prometheus
+            port: 
+              number: 9090
+{% endif %}
+
+  - host: {{alertmanager_url}}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+{% if k8s_version is version("1.19","<") %}
+          serviceName: alertmanager
+          servicePort: 9093
+{% else %}
+          service:
+            name: alertmanager
+            port: 
+              number: 9093
+{% endif %}
+
+
+
+---
+{% if k8s_version is version("1.19","<") %}
+apiVersion: extensions/v1beta1
+{% else %}
+apiVersion: networking.k8s.io/v1
+{% endif %}
+kind: Ingress
+metadata:
+  name: monitor-grafana
+  namespace: {{ monitor_namespace }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-connections: '100'
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    # nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+{% if monitor_scheme == 'https' %}
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+{% if https_cert_base_name != 'https-crt' %}
+    cert-manager.io/cluster-issuer: "letsencrypt"
+{% endif %}
+{% endif %}
+    nginx.ingress.kubernetes.io/server-snippet: |
+
+        more_set_headers "Content-Security-Policy: frame-ancestors 'self'";
+        more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; always;";
+        more_set_headers "X-Frame-Options: sameorigin";
+
+spec:
+  tls:
+{% if monitor_scheme == 'https' %}
+  - hosts:
+      - {{grafana_url}}
+{% if https_cert_base_name == 'https-crt' %}
+    secretName: https-crt
+{% else %}
+    secretName: {{prometheus_url}}-ssl
+{% endif %}
+{% endif %}
+  rules:
+  - host: {{grafana_url}}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+{% if k8s_version is version("1.19","<") %}
+          serviceName: grafana
+          servicePort: 3000
+{% else %}
+          service:
+            name: grafana
+            port: 
+              number: 3000
+{% endif %}

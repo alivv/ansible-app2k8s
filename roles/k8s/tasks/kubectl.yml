@@ -1,0 +1,69 @@
+---
+
+- name: install kubectl cli
+  get_url:
+    url:      "https://dl.k8s.io/v{{ k8s_version }}/bin/linux/amd64/kubectl"
+    dest:     "/usr/local/bin/kubectl-{{ k8s_version }}"
+    owner:    "0"
+    group:    "0"
+    # force:    yes
+    mode:     "0755"
+  delegate_to: "{{ kubectl_node }}"
+  tags: never,kubectl
+
+# - name: add kubectl autocompletion
+#   lineinfile:
+#     dest: ~/.bashrc
+#     state: present
+#     regexp: 'kubectl completion'
+#     line: 'source <(kubectl completion bash)'
+
+- name: get kubectl version
+  shell: |
+      kubectl-{{ k8s_version }} version --client --short |awk '{print $NF}'
+  delegate_to: "{{ kubectl_node }}"
+  changed_when: false
+  failed_when: kubectl_ver.stdout == ""
+  register: kubectl_ver
+  tags: never,kubectl,kubectl-version
+
+- name: show kubectl version
+  debug:
+    msg:
+    - "k8s_version {{ k8s_version }}"
+    - "kubectl_ver {{ kubectl_ver.stdout }}"
+  delegate_to: "{{ kubectl_node }}"
+  tags: never,kubectl,kubectl-version
+
+#For dev only, you can add it manually for security
+- name: copy kubeconfig
+  copy:
+    src: "kubeconfig-{{env}}.yml"
+    dest: "{{ kubeconfig }}"
+    owner: root
+    group: root
+    mode: 0600
+    backup: yes
+  delegate_to: "{{ kubectl_node }}"
+  tags: never,kubeconfig
+
+- name: "get k8s nodes for test"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    echo "#kubectl get nodes"
+    {{kubectl}} get nodes
+  delegate_to: "{{ kubectl_node }}"
+  register: k8s_get_node
+  changed_when: false
+  tags: never,kubectl,kubectl-test
+
+- name: "k8s nodes"
+  debug:
+    msg:
+    - "{{ k8s_get_node.stdout_lines }}"
+  delegate_to: "{{ kubectl_node }}"
+  tags: never,kubectl,kubectl-test
+
+# #Install and Set Up kubectl on Linux
+# https://kubernetes.io/zh-cn/docs/tasks/tools/install-kubectl-linux/
+# https://www.downloadkubernetes.com/

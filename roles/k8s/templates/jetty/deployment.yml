@@ -1,0 +1,280 @@
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ k8s_pod_name }}
+  namespace: {{ namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ k8s_pod_name }}
+  replicas: {{ k8s_pod_replicas }}
+  revisionHistoryLimit: {{ k8s_revisionHistoryLimit|default(10) }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{maxSurge|default('25%')}}
+      maxUnavailable: {{maxUnavailable|default('25%')}}
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "jvm"
+        prometheus.io/port: "{{java_agent_port}}"
+      labels:
+        app.kubernetes.io/name: jetty
+        app: {{ k8s_pod_name }}
+    spec:
+{#- #root for test
+      securityContext:
+        runAsUser: 0
+#} 
+{% if docker_registry_key|default('') != '' %}
+      imagePullSecrets:
+      - name: {{ docker_registry_key }}
+{% endif %}
+{% if k8s_nodeAffinity == true %}
+      affinity:
+        nodeAffinity:
+          {# #硬策略 -#} 
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: x.k8sNodeEnv
+                operator: In
+                values:
+                - all
+                - {{env}}
+{% endif %}
+{% if k8s_pvc_replace_permissions == true and (k8s_log_pvc_add == true or k8s_data_pvc_add == true) %}
+      #init log dir
+      initContainers:
+      - name: init-pod
+        image: {{ deploy_repository_url }}/{{ deploy_public_category }}bash:5.1.4
+        volumeMounts:
+{% if k8s_log_pvc_add == true %}
+        - name: log
+          mountPath: "/var/log/{{ k8s_pod_name }}"
+          subPath: {{ k8s_pod_name }}
+{% endif %}
+{% if k8s_data_pvc_add == true %}
+        - name: data
+          mountPath: "{{ k8s_data_pvc_dir}}"
+          subPath: {{ k8s_pod_name }}
+{% endif %}
+        command:
+        - bash
+        - -c
+        - |
+          date
+{% if k8s_log_pvc_add == true %}
+          chown 999:999 -R /var/log/{{ k8s_pod_name }}
+          chmod 777 /var/log/{{ k8s_pod_name }}
+{% endif %}
+{% if k8s_data_pvc_add == true %}
+          chown 999:999 -R {{ k8s_data_pvc_dir}}
+{% endif %}
+{% endif %}
+
+      containers:
+      - name: {{ k8s_pod_name }}
+        image: "{{ deploy_repository_url }}/{{ deploy_repository_category }}{{ docker_image_name }}:{{ docker_image_tag }}"
+        imagePullPolicy: Always  # IfNotPresent
+{#- #注释annotation 
+        command:
+        - bash
+        - -c
+        - |
+          tail -f /etc/hosts
+#} 
+        env:
+        - name: ENV
+          value: '/etc/profile'
+        - name: TZ
+          value: "{{ TZ | default('Asia/Shanghai') }}"
+        - name: TIME_ZONE
+          value: "{{ TZ | default('Asia/Shanghai') }}"
+        - name: xmx
+          value: '{{ xmx }}'
+        - name: xms
+          value: '{{ xms }}'
+        - name: JVMX
+          value: "{{ k8s_JVMX |default('true') }}"
+        - name: AppEnv
+          value: "{{ env }}"
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        volumeMounts:
+        - name: config
+          mountPath: "/var/lib/jetty/etc/{{ docker_image_name }}"
+          readOnly: true
+{% if k8s_log_pvc_add == true %}
+        - name: log
+          mountPath: "/var/log/{{ k8s_pod_name }}"
+          subPath: {{ k8s_pod_name }}
+{% endif %}
+{% if k8s_data_pvc_add == true %}
+        - name: data
+          mountPath: "{{ k8s_data_pvc_dir}}"
+          subPath: {{ k8s_pod_name }}
+{% endif %}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        resources:
+          requests:
+            cpu: {{ k8s_pod_resources_requests_cpu }}
+            memory: {{ k8s_pod_resources_requests_memory }}
+          limits:
+            cpu: {{ k8s_pod_resources_limits_cpu }}
+            memory: {{ k8s_pod_resources_limits_memory }}
+{#- #注释annotation 
+        lifecycle: 
+          postStart: 
+            exec: 
+              command: 
+              - bash
+              - -c 
+              - |
+                date
+          preStop: 
+            exec: 
+              command: 
+              - 'sleep'
+              - '20'
+#} 
+{% if k8s_pod_readinessProbe_type != 'noCheck' %}
+        {# #启动探测 -#} 
+        startupProbe:
+          {# #最大启动时间10×60=600s=10m -#} 
+          periodSeconds: 10
+          failureThreshold: 60
+{% if k8s_pod_readinessProbe_type == 'httpGet' %}
+          httpGet:
+            path: {{ k8s_pod_readinessProbe_endpoint }}
+            port: 8080
+{% if k8s_pod_readinessProbe_httpType == 'json' %}
+            httpHeaders:
+            - name: Content-Type
+              value: "application/json"
+            - name: username
+              value: {{ vault_health_check_username }}
+            - name: password
+              value: {{ vault_health_check_password }}
+{% endif %}
+{% else %}
+          tcpSocket:
+            port: 8080
+{% endif %}
+        {# #就绪探测 -#} 
+        readinessProbe:
+{% if k8s_pod_readinessProbe_type == 'httpGet' %}
+          httpGet:
+            path: {{ k8s_pod_readinessProbe_endpoint }}
+            port: 8080
+{% if k8s_pod_readinessProbe_httpType == 'json' %}
+            httpHeaders:
+            - name: Content-Type
+              value: "application/json"
+            - name: username
+              value: {{ vault_health_check_username }}
+            - name: password
+              value: {{ vault_health_check_password }}
+{% endif %}
+{% else %}
+          tcpSocket:
+            port: 8080
+{% endif %}
+          timeoutSeconds: 3
+          periodSeconds: {{ k8s_pod_readinessProbe_periodSeconds }}
+          successThreshold: 2
+          failureThreshold: {{ k8s_pod_readinessProbe_failureThreshold }}
+        {# #存活探测 -#} 
+        livenessProbe:
+          {# #启动等待 -#} 
+          initialDelaySeconds: {{ k8s_pod_livenessProbe_initialDelaySeconds }}
+          {# #超时 -#} 
+          timeoutSeconds: 3
+          {# #探测频率 -#} 
+          periodSeconds: {{ k8s_pod_readinessProbe_periodSeconds +2 }}
+          {# #连续探测n次成功表示成功 -#} 
+          successThreshold: 1
+          {# #连续探测n次失败表示失败 -#} 
+          failureThreshold: {{ k8s_pod_readinessProbe_failureThreshold + 2 }}
+{% if k8s_pod_readinessProbe_type == 'httpGet' %}
+          httpGet:
+            path: {{ k8s_pod_readinessProbe_endpoint }}
+            port: 8080
+{% if k8s_pod_readinessProbe_httpType == 'json' %}
+            httpHeaders:
+            - name: Content-Type
+              value: "application/json"
+            - name: username
+              value: {{ vault_health_check_username }}
+            - name: password
+              value: {{ vault_health_check_password }}
+{% endif %}
+{% else %}
+          tcpSocket:
+            port: 8080
+{% endif %}
+{% endif %}
+      {# # 等待优雅地终止 -#} 
+      {# # terminationGracePeriodSeconds: 30 -#} 
+      volumes:
+      - name: config
+        configMap:
+          name: {{ k8s_pod_name }}-config
+          items:
+{% if k8s_config_profiles_active_env|default(false) == true %}
+          - key: applicationProperties
+            path: application-{{ env }}.properties
+{% else %}
+          - key: applicationProperties
+            path: META-INF/spring/application.properties
+{% endif %}
+          - key: log4j2
+            path: log4j2.yml
+{% if k8s_log_pvc_add == true %}
+      - name: log
+        persistentVolumeClaim:
+          claimName: {{ k8s_log_pvc.name }}
+{% endif %}
+{% if k8s_data_pvc_add == true %}
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ k8s_data_pvc.name }}
+{% endif %}
+
+{% if k8s_hpa_enabled == true  and item not in pod_not_hpa %}
+---
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ item }}
+  namespace: {{ namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ item }}
+  minReplicas: {{ k8s_pod_replicas }}
+  maxReplicas: {{ k8s_pod_replicas +3 }}
+  metrics:
+    - type: Pods
+      pods:
+        metric:
+          name: memory_limit_usage
+        target:
+          type: AverageValue
+          averageValue: 90
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+{% endif %}
+

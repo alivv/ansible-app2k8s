@@ -1,0 +1,26 @@
+# docker-py use for ansible
+
+- block:
+  - name: install python-pip 
+    package:
+      name: 
+        - python-pip
+      state: present
+    register: python_pip
+
+  - name: upgrade python-pip
+    shell: |
+      cd /tmp ; rm -f get-pip.py
+      wget https://mirrors.aliyun.com/pypi/get-pip.py && python get-pip.py 
+      #pip install --upgrade pip -i https://mirrors.aliyun.com/pypi/simple
+    when: python_pip is changed
+
+  - name: pip install docker-py 
+    pip:
+      name:
+        - docker-py>=1.10.6
+        - PyYAML>5.3.0
+      # extra_args: -i https://mirrors.aliyun.com/pypi/simple/
+      extra_args: -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+  tags: py,build-init

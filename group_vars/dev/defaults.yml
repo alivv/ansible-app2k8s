@@ -1,0 +1,7 @@
+---
+
+#docker registry
+registry_username: admin
+registry_password: docker
+registry_domain_name: "hub.elvin.vip"
+

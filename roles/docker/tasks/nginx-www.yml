@@ -1,0 +1,30 @@
+#nginx www share
+
+- name: print
+  debug:
+    msg:
+      - "yml-url: http://{{deploy_yml_node}}:{{deploy_yml_port}} "
+  changed_when: false
+  run_once: yes
+  delegate_to: localhost
+  tags: never,yml-node
+
+- name: "create dir for yml"
+  file:
+    state:    directory
+    path:     "/data/www"
+  tags: never,yml-node
+
+- name: copy shell script for yml-node
+  template:
+    src: run.nginx-www.sh
+    dest: "/data/www/.run.nginx-www.sh"
+    mode: 0744
+  tags: never,yml-node
+
+- name: run run.nginx-www.sh
+  shell: |
+    bash /data/www/.run.nginx-www.sh
+  register: get_docker_version
+  changed_when: false
+  tags: never,yml-node

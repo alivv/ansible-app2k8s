@@ -1,0 +1,59 @@
+{% if https_cert_base_name == 'https-crt' %}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dashboard-https-crt
+  namespace: kubernetes-dashboard
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ https_crt }}
+  tls.key: {{ https_key }}
+{% endif %}
+---
+#ingress
+
+{% if k8s_version is version("1.19","<") %}
+apiVersion: extensions/v1beta1
+{% else %}
+apiVersion: networking.k8s.io/v1
+{% endif %}
+kind: Ingress
+metadata:
+  name: kubernetes-dashboard
+  namespace: kubernetes-dashboard
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+{% if https_cert_base_name != 'https-crt' %}
+    cert-manager.io/cluster-issuer: "letsencrypt"
+{% endif %}
+spec:
+  tls:
+  - hosts:
+      - {{ dashboard_url }}
+{% if https_cert_base_name == 'https-crt' %}
+    secretName: dashboard-https-crt
+{% else %}
+    secretName: {{ dashboard_url }}-ssl
+{% endif %}
+  rules:
+  - host: {{ dashboard_url }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+{% if k8s_version is version("1.19","<") %}
+          serviceName: kubernetes-dashboard
+          servicePort: 443
+{% else %}
+          service:
+            name: kubernetes-dashboard
+            port: 
+              number: 443
+{% endif %}
