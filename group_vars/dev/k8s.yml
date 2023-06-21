@@ -113,8 +113,8 @@ init_list:
 
 #ops
 - 2.3.permission-manager.yml
-# - 2.3.kubernetes-dashboard.2.5.1.yml
-- 2.3.kubernetes-dashboard-ingress.yml
+- 2.3.k8s-dashboard.v2.5.1.yml
+- 2.3.k8s-dashboard-ingress.yml
 - 2.3.ops-k8s-kubepi-role.yml
 - 2.3.ops-k8s-kubepi.yml
 
