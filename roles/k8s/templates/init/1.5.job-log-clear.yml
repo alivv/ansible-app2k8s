@@ -10,6 +10,9 @@ metadata:
   namespace: {{ namespace }}
 spec:
   schedule: "1 0 * * *"
+{% if k8s_version|default(1.18) is version("1.20",">") %}
+  timezone: "{{ TZ | default('Asia/Shanghai') }}"
+{% endif %}
   jobTemplate:
     spec:
       template:
@@ -33,18 +36,15 @@ spec:
             - bash
             - -c
             - |
-              s=$(date -u +%s)
-              S=$(($s + 28800))
-              date -d"@$s" +"%F %T UTC"
-              date -d"@$S" +"%F %T CST"
+              date +"%F %T %Z %:z"
               [ "{{env}}" = "prod" ] && { d=180 ; } || { d=3 ; }
               n=$(find /var/log/k8s -type f -name *.log -mtime +$d |wc -l)
               echo "Clean Up $n logs files from $d days ago"
               find /var/log/k8s -type f -size 0c -delete
               find /var/log/k8s -type f -mtime +$d -delete
               find /var/log/k8s -type f -name "gc.*.log"  -o -name "vm.*.log" |xargs truncate -s 0
-              find /var/log/k8s -type f -mtime +0 -size +1k -name "*.log" |xargs gzip
-              date -d"@$S" +"%F %T CST"
+              find /var/log/k8s -type f -mtime +0 -size +1k -name "*.log" |egrep -v "gz$" |xargs gzip
+              date +"%F %T %Z %:z"
 
           volumes:
           - name: localtime
