@@ -60,7 +60,7 @@ ansible-templates -> deploy.yml -> kubectl -> kubenertes
 prod环境使用对应配置路径 group_vars/prod/k8s_apps/app-v1.yml
 
 **运行截图**
-![](https://imgs.elvin.vip/2023/k8s_ansible_cli_vi.jpg)
+![](https://imgs.elvin.vip/2023/k8s_ansible_cli_v1.jpg)
 
 #### #5 dev 环境准备与配置
 
