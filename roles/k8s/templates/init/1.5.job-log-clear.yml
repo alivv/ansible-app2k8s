@@ -10,8 +10,8 @@ metadata:
   namespace: {{ namespace }}
 spec:
   schedule: "1 0 * * *"
-{% if k8s_version|default(1.18) is version("1.20",">") %}
-  timezone: "{{ TZ | default('Asia/Shanghai') }}"
+{% if k8s_version|default(1.18) is version("1.26",">") %}
+  timeZone: "{{ TZ | default('Asia/Shanghai') }}"
 {% endif %}
   jobTemplate:
     spec:
