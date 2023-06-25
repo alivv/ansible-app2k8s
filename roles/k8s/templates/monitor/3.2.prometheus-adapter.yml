@@ -137,21 +137,21 @@ spec:
   groupPriorityMinimum: 100
   versionPriority: 200
 ---
-apiVersion: apiregistration.k8s.io/v1
-kind: APIService
-metadata:
-  # name: v1beta1.external.metrics.k8s.io
-  name: v1.metrics.k8s.io
-spec:
-  service:
-    name: custom-metrics-apiserver
-    namespace: custom-metrics
-  group: external.metrics.k8s.io
-  # version: v1beta1
-  version: v1
-  insecureSkipTLSVerify: true
-  groupPriorityMinimum: 100
-  versionPriority: 100
+# apiVersion: apiregistration.k8s.io/v1
+# kind: APIService
+# metadata:
+#   name: v1beta1.external.metrics.k8s.io
+#   # name: v1.external.metrics.k8s.io
+# spec:
+#   service:
+#     name: custom-metrics-apiserver
+#     namespace: custom-metrics
+#   group: external.metrics.k8s.io
+#   version: v1beta1
+#   # version: v1
+#   insecureSkipTLSVerify: true
+#   groupPriorityMinimum: 100
+#   versionPriority: 100
 ---
 apiVersion: v1
 kind: Service
@@ -241,6 +241,7 @@ spec:
         image: registry.k8s.io/prometheus-adapter/prometheus-adapter:v0.10.0
         {%- else %} 
         image: {{ deploy_repository_url }}/{{ deploy_public_category }}prometheus-adapter:v0.10.0
+        # image: registry.cn-shanghai.aliyuncs.com/elvin/prometheus-adapter:v0.10.0
         {%- endif %} 
         args:
         - --secure-port=6443
