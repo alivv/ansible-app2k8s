@@ -501,13 +501,11 @@ ansible-playbook k8s.yml -i dev -D -t monitor-config,monitor-reload
 #### #10 Author  
 
 By Elvin,  hi@elvin.vip   
-Main Blog: blog.elvin.vip  
+Main Blog: [blog.elvin.vip](http://blog.elvin.vip)  
 
 Source  
-https://gitee.com/alivv/ansible-app2k8s
+[https://gitee.com/alivv/ansible-app2k8s](https://gitee.com/alivv/ansible-app2k8s)  
 
-https://github.com/alivv/ansible-app2k8s
-
-
+[https://github.com/alivv/ansible-app2k8s](https://github.com/alivv/ansible-app2k8s)  
 
 
