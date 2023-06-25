@@ -8,13 +8,13 @@
     debug:
       msg:
         - "tags:"
-        - "1. base-build    build base image, more tags: baselist,base-push"
+        - "1. base-build    build base image, more tags: baselist, base-push"
         - "2. push          push public image to registry, more tags: pushlist"
-        - "3. init          init k8s env, more tags: initlist,init-yml,init-rm"
-        - "4. monitor       prometheus for k8s, more tags: monitor-yml,monitor-rm"
-        - "5. build         build images, more tags: rmi,build,dockerfile,upload"
-        - "6. deploy        deploy apps to k8s, more tags: yml,config,rm,restart"
-        - "7. ingress       ingress for app, more tags: ingress-yml,ingress-rm"
+        - "3. init          init k8s env, more tags: initlist, init-yml, init-rm"
+        - "4. monitor       prometheus for k8s, more tags: monitor-yml, monitor-rm"
+        - "5. build         build images, more tags: rmi, build, dockerfile, upload"
+        - "6. deploy        deploy apps to k8s, more tags: yml, config, rm, restart"
+        - "7. ingress       ingress for app, more tags: ingress-yml, ingress-rm"
         - "8. other         h: show help document, list: show app list"
         - "                 kubectl: install kubectl, more tags: kubeconfig"
         - ""
@@ -22,20 +22,20 @@
         - "1. baselist      usage: -t base-build -e baselist=all"
         - "2. pushlist      usage: -t push -e pushlist=redis"
         - "3. initlist      usage: -t init -e initlist=1.1.namespace.yml"
-        - "4. applist       usage: -t deploy -e applist=app-v1 "
+        - "4. applist       usage: -t deploy -e applist=app-v1"
         - ""
-        - "example: "
-        - "#1 Push all public images to repository"
-        - " ansible-playbook k8s.yml -i env/dev -D -t push -e pushlist=all "
+        - "example:"
+        - "#1 Push all public images to the repository"
+        - " ansible-playbook k8s.yml -i env/dev -D -t push -e pushlist=all"
 
-        - "#2 init k8s dev env"
-        - " ansible-playbook k8s.yml -i env/dev -D -t init -e initlist=all "
+        - "#2 Initialize the k8s dev environment"
+        - " ansible-playbook k8s.yml -i env/dev -D -t init -e initlist=all"
 
-        - '#3 Build and deploy the app-v1 to k8s dev env'
-        - " ansible-playbook k8s.yml -i env/dev -D -t rmi,build,deploy -e applist=app-v1 "
+        - '#3 Build and deploy app-v1 to the k8s dev environment'
+        - " ansible-playbook k8s.yml -i env/dev -D -t rmi, build, deploy -e applist=app-v1"
 
-        - "#4 Create yml files for more than one app"
-        - " ansible-playbook k8s.yml -i env/dev -D -t yml -e '{applist: [app-v1,app-v2]}' "
+        - "#4 Create yml files for more than one apps"
+        - " ansible-playbook k8s.yml -i env/dev -D -t yml -e '{applist: [app-v1, app-v2]}'"
 
   - name: alert
     fail:
