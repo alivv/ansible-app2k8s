@@ -1,0 +1,78 @@
+---
+#huawei sfs
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ k8s_data_pvc.name }}
+allowVolumeExpansion: true
+allowedTopologies: []
+mountOptions: []
+parameters:
+  csi.storage.k8s.io/csi-driver-name: nas.csi.everest.io
+  csi.storage.k8s.io/fstype: nfs
+  everest.io/share-access-level: rw
+  # everest.io/share-access-to: xxx-2b8b-4ea6-9be3-xxxxxx
+  everest.io/share-is-public: 'false'
+provisioner: everest-csi-provisioner
+reclaimPolicy: Retain
+# reclaimPolicy: Delete
+volumeBindingMode: Immediate
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ k8s_data_pvc.name }}
+  namespace: {{ namespace }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ k8s_data_pvc.resources_requests }}
+  storageClassName: {{ k8s_data_pvc.name }}
+
+
+---
+#huawei sfs
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ k8s_log_pvc.name }}
+allowVolumeExpansion: true
+allowedTopologies: []
+mountOptions: []
+parameters:
+  csi.storage.k8s.io/csi-driver-name: nas.csi.everest.io
+  csi.storage.k8s.io/fstype: nfs
+  everest.io/share-access-level: rw
+  # everest.io/share-access-to: xxx-2b8b-4ea6-9be3-xxxxxx
+  everest.io/share-is-public: 'false'
+provisioner: everest-csi-provisioner
+{% if env == 'prod' %}
+reclaimPolicy: Retain
+{% else %}
+reclaimPolicy: Delete
+{% endif %}
+volumeBindingMode: Immediate
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ k8s_log_pvc.name }}
+  namespace: {{ namespace }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ k8s_log_pvc.resources_requests }}
+  storageClassName: {{ k8s_log_pvc.name }}
+
+
+
+#doc
+#https://support.huaweicloud.com/usermanual-cce/cce_10_0380.html
