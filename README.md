@@ -493,7 +493,8 @@ ansible-playbook k8s.yml -i dev -D -t monitor-config,monitor-reload
 #### #10 作者  
 
 Elvin hi@elvin.vip  
-主要博客 blog.elvin.vip  
+主要博客 http://blog.elvin.vip  
+
 
 Source  
 https://gitee.com/alivv/ansible-app2k8s  
