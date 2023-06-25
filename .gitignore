@@ -5,3 +5,4 @@
 .DS_Store
 vault.pass
 #ansible.cfg
+roles/k8s/files/kubeconfig-*.yml
