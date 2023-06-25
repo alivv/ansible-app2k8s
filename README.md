@@ -3,14 +3,14 @@
 #### #1 介绍
 
 - 使用 ansible 管理和部署服务到 kubernetes  
-- 适用于项目容器化，多套 k8s 环境的管理，可结合`CICD`工具做`DeVops`  
+- 适用于项目容器化，多套 k8s 环境的管理，可结合`CICD`工具做`DevOps`  
 - 来自于项目实践,已部署多套 k8s 环境  
     - [自建 k8s](https://www.cnblogs.com/elvi/p/8976305.html)  
     - [阿里云 ACK](https://help.aliyun.com/product/85222.html)  
     - [腾讯云 TEK](https://cloud.tencent.com/document/product/457)  
     - [华为云 CCE](https://support.huaweicloud.com/cce/index.html)
     - [AWS EKS](https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/what-is-eks.html)  
-    - [Azure AKS](https://learn.microsoft.com/zh-cn/azure/aks/)  
+    - [微软云 AKS](https://learn.microsoft.com/zh-cn/azure/aks/)  
 
 #### #2 主要功能  
 
@@ -53,8 +53,8 @@ ansible-templates -> deploy.yml -> kubectl -> kubenertes
 - ms 没有单独参数文件的微服务部署模板
 - nignx 前端静态使用 nginx 容器的部署模板
 
-相同应用部署在不同k8s环境,对应配置如储存、镜像仓库、资源限制等不同  
-使用ansible -i 指定inventory路径并使用对应的group组变量
+针对不同k8s环境如dev、prod,使用各自参数配置如储存、镜像仓库、资源限制等  
+使用ansible -i 指定inventory路径并使用对应的组变量
 如dev环境的k8s配置文件 group_vars/dev/k8s.yml 
 服务app-v1的dev环境配置 group_vars/dev/k8s_apps/app-v1.yml
 prod环境使用对应配置路径 group_vars/prod/k8s_apps/app-v1.yml
@@ -62,18 +62,18 @@ prod环境使用对应配置路径 group_vars/prod/k8s_apps/app-v1.yml
 **运行截图**
 ![](https://imgs.elvin.vip/2023/k8s_ansible_cli_v1.jpg)
 
-#### #5 dev 环境准备与配置
+#### #5 dev 环境准备与配置  
 
-##### #5.1 快速安装 k8s
+##### #5.1 快速安装 k8s  
 
 ```bash
 export Ver=1.22.16 #k8s版本
-curl -s http://elvin.vip/ks/k8s/k8s.master.ha.sh |bash
+curl -ks http://elvin.vip/ks/k8s/k8s.master.ha.sh |bash
 
 # 参考https://www.cnblogs.com/elvi/p/8976305.html 
 ```
 
-##### #5.2 获取 ansible-app2k8s 源码
+##### #5.2 获取 ansible-app2k8s  
 
 ```bash
 mkdir -p /data/ansible-app2k8s
@@ -126,12 +126,12 @@ app2k8s
 ansible --version
 ```
 
-##### #5.4 初始化 docker-build 节点
+##### #5.4 初始化 docker-build 节点  
 
 > 本实例把多个功能部署在 docker-build 单节点  
 > 为了安全,实际可根据需求可拆分为多个节点
 
-###### #5.4.1 更改配置
+###### #5.4.1 更改配置  
 
 配置 dev 节点 env/dev/k8s.inv
 
@@ -159,6 +159,7 @@ EOF
 #IP地址换自己的,节点需要免密登录
 #节点需要安装python2
 # apt install -y python python2 python-apt
+# ln -fs /usr/bin/python2 /usr/bin/python
 ```
 
 配置 dev 环境参数 group_vars/dev/k8s.yml
@@ -205,13 +206,14 @@ ansible-playbook nfs.yml -i env/dev -D -l k8s
 ###### #5.4.3 安装配置 kubectl
 
 `拷贝`k8s 节点配置 /etc/kubernetes/admin.conf  
-`替换`本实例配置 roles/k8s/files/kubeconfig-dev.yml
+`替换`本实例配置 roles/k8s/files/kubeconfig-dev.yml  
+可手动配置kubeconfig,文件路径配置在group_vars/dev/k8s.yml  
 
 ```bash
 #安装配置kubectl命令行
 ansible-playbook k8s.yml -i env/dev -D -l build-node1 -t kubectl,kubeconfig
 
-#kubectl测试
+#kubectl测试命令 kubectl get nodes 
 ansible-playbook k8s.yml -i env/dev -D -t kubectl-test
 ```
 
@@ -273,6 +275,11 @@ ansible-playbook k8s.yml -i env/dev -D -t monitorlist
 #执行所有yml
 ansible-playbook k8s.yml -i env/dev -D -t monitor
 ```
+grafana默认用户密码 `admin` `grafana`  
+添加loki数据源地址 http://loki:3100  
+添加prometheus数据库源地址 http://prometheus:9090    
+grafana模板 roles/k8s/templates/monitor/grafana-template/  
+![](https://imgs.elvin.vip/2023/grafana-datasources.jpg) 
 
 ##### #6.4 部署服务到 k8s
 
@@ -293,7 +300,7 @@ ansible-playbook k8s.yml -i env/dev -D -t build,deploy -e applist=all
 ```bash
 ansible-playbook k8s.yml -i env/dev -D -t ingress
 ```
-浏览器打开网址查看如下:
+查看ingress配置,浏览器打开网址查看如下:
 ![](https://imgs.elvin.vip/2023/ingess-demo1.jpg)
 
 #### #7 部署验证与清理
@@ -340,8 +347,8 @@ ansible-playbook k8s.yml -i env/dev -D -t init-rm
 
 ##### #8.2 储存卷 PVE
 
-为便于管理与维护,本实例存储卷 PVC 使用静态储存  
-使用 PVC 时挂载路径添加对应子路径 subPath
+为便于管理与维护,本实例存储卷`PVC`使用静态储存  
+使用`PVC`时挂载路径添加对应服务子路径 subPath
 使用 cronJob 每天压缩与清理 PVC 储存的 log 文件
 储存实例类型有 NFS、阿里云 NAS、腾讯云 CFS、AWS EFS、Azure Files  
 路径 roles/k8s/templates/init 前缀是`1.4.pvc`的文件
@@ -363,11 +370,11 @@ log4j2 配置在 configmap `roles/k8s/templates/jetty/configmap/`
    GitHub https://github.com/cert-manager/cert-manager  
    注意事项：
 
-  1. 配置自己的 cert-ssl-issuer.yml
-  2. http 认证创建证书,需要域名解析到正确的 IP
-  3. DNS 认证不需要域名解析,可以查看官网文档
+  1. 配置自己的 cert-ssl-issuer.yml  
+  2. http 认证创建证书,需要域名解析到正确的公网IP  
+  3. DNS 认证需要配置DNS解析权限,可以查看官网文档  
 
-- 8.4.2 k8s 面板 `KubePi`(1Panel)
+- 8.4.2 k8s 面板 `KubePi`
   Kubernetes 可视化面板,可管多个 k8s 集群,国产开源
    GitHub https://github.com/1Panel-dev/KubePi  
   ![](https://imgs.elvin.vip/2023/k8s_kubepi-1.jpg)
@@ -385,7 +392,7 @@ log4j2 配置在 configmap `roles/k8s/templates/jetty/configmap/`
 - 有状态服务使用 StatefulSet 方式部署,需要挂载 PVC 储存
 - 因为有状态服务部署后很少更改,放在 init 分类,前缀有 data 的 yml 文件
 - - 如 redis roles/k8s/templates/init/3.data-redis-standone.yml
-- 测试环境部署单节点够用，生产环境推荐使用公有云的云原生服务
+- 测试环境部署单节点够用，生产环境推荐使用公有云云原生服务
 
 ##### #8.6 监控警报
 
@@ -485,11 +492,11 @@ ansible-playbook k8s.yml -i dev -D -t monitor-config,monitor-reload
 
 #### #10 作者  
 
-Elvin hi@elvin.vip
-主要博客 blog.elvin.vip
+Elvin hi@elvin.vip  
+主要博客 blog.elvin.vip  
 
-Source
-https://gitee.com/alivv/ansible-app2k8s
+Source  
+https://gitee.com/alivv/ansible-app2k8s  
 
-https://github.com/alivv/ansible-app2k8s
+https://github.com/alivv/ansible-app2k8s  
 
