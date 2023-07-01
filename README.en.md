@@ -1,6 +1,6 @@
 <h3 align="center">ansible-app2k8s</h3>
 
-[中文](README.md) | [English](README.en.md)
+[中文](README.cn.md) | [English](README.en.md)
 
 
 #### #1 Introduction
