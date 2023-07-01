@@ -13,7 +13,7 @@
   - [Alibaba Cloud ACK](https://www.alibabacloud.com/help/en/container-service-for-kubernetes)
   - [Tencent Cloud TEK](https://www.tencentcloud.com/document/product/457)
   - [Huawei Cloud CCE](https://support.huaweicloud.com/intl/en-us/cce/index.html)
-  - [AWS EKS](https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/what-is-eks.html)
+  - [AWS EKS](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html)
   - [Azure AKS](https://learn.microsoft.com/en-us/azure/aks/)
 
 #### #2 Main Features
