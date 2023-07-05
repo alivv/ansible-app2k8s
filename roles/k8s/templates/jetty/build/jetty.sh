@@ -1,20 +1,35 @@
 #!/bin/bash
 
-export JETTY_PID=$JETTY_HOME/jetty.pid
+#var
+app={{ item }}
 #tz
 echo ${TZ} >/etc/timezone
+export JETTY_PID=$JETTY_HOME/jetty.pid
+if [ "$POD_IP" = "" ];then
+    localip=$(grep $(hostname) /etc/hosts |head -n 1 |awk '{print $1}')
+    export localip=$localip
+else
+    export localip=$POD_IP
+fi
 
 #logs
-cd /var/log/{{ item }}
+cd /var/log/${app}
 [ -f gc.${HOSTNAME}.log ] || { touch gc.${HOSTNAME}.log ; }
 [ -f vm.${HOSTNAME}.log ] || { touch vm.${HOSTNAME}.log ; }
 [ -f ${HOSTNAME}.log ]    || { touch ${HOSTNAME}.log ; }
 # ln -fs gc.${HOSTNAME}.log  gc.log
 # ln -fs vm.${HOSTNAME}.log  vm.log
-# ln -fs ${HOSTNAME}.log     {{ item }}.log
-ln -fs /var/log/{{ item }}/gc.${HOSTNAME}.log /var/log/app/gc.log
-ln -fs /var/log/{{ item }}/vm.${HOSTNAME}.log /var/log/app/vm.log
-ln -fs /var/log/{{ item }}/${HOSTNAME}.log /var/log/app/{{ item }}.log
+# ln -fs ${HOSTNAME}.log     ${app}.log
+ln -fs /var/log/${app}/gc.${HOSTNAME}.log /var/log/app/gc.log
+ln -fs /var/log/${app}/vm.${HOSTNAME}.log /var/log/app/vm.log
+ln -fs /var/log/${app}/${HOSTNAME}.log /var/log/app/${app}.log
+{% if docker_build_base_image == 'jetty9-17' %}
+#java 17
+[ -f gc.safepoint.${HOSTNAME}.log ] || { touch gc.safepoint.${HOSTNAME}.log ; }
+ln -fs gc.safepoint.${HOSTNAME}.log gc.safepoint.log
+ln -fs /var/log/${app}/gc.safepoint.${HOSTNAME}.log /var/log/app/gc.safepoint.log
+{% endif %}
+
 cd ${JETTY_BASE}
 
 java_env_opts="-Djava.security.egd=file:/dev/urandom  -server
@@ -22,7 +37,7 @@ java_env_opts="-Djava.security.egd=file:/dev/urandom  -server
     -Dfile.encoding=UTF-8
     -Djava.awt.headless=true
     -Djava.library.path=/usr/lib
-    -Djava.rmi.server.hostname=$POD_IP
+    -Djava.rmi.server.hostname=$localip
     -Djava.net.preferIPv4Stack=true
     {% if k8s_config_profiles_active_env == true %}-Dspring.profiles.active=${AppEnv:-qa} {% endif %}" 
 
@@ -50,33 +65,41 @@ jetty_java_small_opts='-XX:+UseParallelGC
 [[ $xmx -ge 3276 ]] && jvmGC="${jetty_java_large_opts}" || jvmGC="${java_jmx_opts}"
 
 if [[ "$JVMX" = "true" ]]; then
-java_k8s_resource_opts="-Xmx${xmx}m -Xms${xms}m
-    -XX:ActiveProcessorCount={{ k8s_jvm_active_processor_count }}"
+java_k8s_resource_opts="-XX:+UseContainerSupport
+    -Xmx${xmx}m -Xms${xms}m"
 else
-java_k8s_resource_opts="-XX:+UnlockExperimentalVMOptions
-    -XX:+UseCGroupMemoryLimitForHeap
-    -XX:ActiveProcessorCount={{ k8s_jvm_active_processor_count }}"
+java_k8s_resource_opts="-XX:+UseContainerSupport 
+{% if docker_build_base_image == 'jetty9-17' %}
+    -XX:MaxRAMPercentage=80
+{% endif %}
+    "
 fi
 
 if [ "$AppEnv" = "qa" -o "$AppEnv" = "test" -o "$AppEnv" = "dev" ]; then
     java_debug="-Xdebug -Xnoagent -Djava.compiler=NONE -Xrunjdwp:transport=dt_socket,address=8081,server=y,suspend=n"
 fi
 
-java_memory_opts="{% if docker_build_base_image == 'jetty9' %}-XX:+PreserveFramePointer{% endif %}
-    -XX:MaxTenuringThreshold=15
+java_memory_opts="
+{% if docker_build_base_image == 'jetty9' %}
+    -XX:+PreserveFramePointer
     -XX:-UseBiasedLocking
-    -XX:AutoBoxCacheMax=20000
     -XX:+ParallelRefProcEnabled
     -XX:+SafepointTimeout
     -XX:SafepointTimeoutDelay=500
     -XX:OldPLABSize=1024
+{% endif %}
+    -XX:MaxTenuringThreshold=15
+    -XX:AutoBoxCacheMax=20000
     $jvmGC"
 
 java_log_opts=" -XX:+UnlockDiagnosticVMOptions
-    -XX:LogFile=/var/log/{{ item }}/vm.${HOSTNAME}.log
+    -XX:+LogVMOutput
+    -XX:LogFile=/var/log/${app}/vm.${HOSTNAME}.log
+    -XX:+PrintCommandLineFlags
+{% if docker_build_base_image == 'jetty9' %}
+    -XX:-DisplayVMOutput
     -XX:+PrintGCDetails
-    {% if docker_build_base_image == 'jetty9' %}
-    -Xloggc:/var/log/{{ item }}/gc.${HOSTNAME}.log
+    -Xloggc:/var/log/${app}/gc.${HOSTNAME}.log
     -XX:+PrintGCDateStamps
     -XX:+PrintGCTimeStamps
     -XX:+PrintHeapAtGC
@@ -86,17 +109,13 @@ java_log_opts=" -XX:+UnlockDiagnosticVMOptions
     -XX:NativeMemoryTracking=summary
     -XX:+PrintSafepointStatistics
     -XX:PrintSafepointStatisticsCount=1
-    {% elif docker_build_base_image == 'jetty9-17' %}
-    -Xlog:gc:/var/log/{{ item }}/gc.${HOSTNAME}.log
-    -Xlog:::time
-    -Xlog:gc+heap=trace
-    -Xlog:age*=debug
-    -Xlog:safepoint:/var/log/{{ item }}/gc.${HOSTNAME}.log
+{% elif docker_build_base_image == 'jetty9-17' %}
+    -XX:-OmitStackTraceInFastThrow
+    -Xlog:gc*=debug:file=/var/log/${app}/gc.${HOSTNAME}.log:time,uptime,level,tags:filecount=20,filesize=100m
+    -Xlog:safepoint=debug:file=/var/log/${app}/gc.safepoint.${HOSTNAME}.log:time,uptime,level,tags:filecount=10,filesize=10M
     --add-opens java.base/java.lang=ALL-UNNAMED
-    {% endif %}
-    -XX:+PrintCommandLineFlags
-    -XX:-DisplayVMOutput
-    -XX:+LogVMOutput" 
+{% endif %}
+    " 
 
 java_agent_opts=" -javaagent:/opt/java_agent/{{java_agent}}={{java_agent_port}}:/opt/java_agent/jmx_exporter.yml"
 
