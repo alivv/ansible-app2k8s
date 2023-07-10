@@ -52,7 +52,6 @@ jetty_java_large_opts='{% if docker_build_base_image == 'jetty9' %}-XX:+UseConcM
     -XX:+CMSClassUnloadingEnabled 
     -XX:CMSInitiatingOccupancyFraction=68
     -XX:+UseCMSInitiatingOccupancyOnly
-    -XX:CMSFullGCsBeforeCompaction=0
     -XX:-DisableExplicitGC
     -XX:+ExplicitGCInvokesConcurrent
     -XX:+UseCompressedClassPointers
@@ -92,6 +91,12 @@ java_memory_opts="
     -XX:AutoBoxCacheMax=20000
     $jvmGC"
 
+if [[ $AppEnv == *qa* || $AppEnv == *dev* ]]; then
+    jetty_level="-Dorg.eclipse.jetty.LEVEL=WARN"
+else
+    jetty_level="-Dorg.eclipse.jetty.LEVEL=OFF"
+fi
+
 java_log_opts=" -XX:+UnlockDiagnosticVMOptions
     -XX:+LogVMOutput
     -XX:LogFile=/var/log/${app}/vm.${HOSTNAME}.log
@@ -115,7 +120,7 @@ java_log_opts=" -XX:+UnlockDiagnosticVMOptions
     -Xlog:safepoint=debug:file=/var/log/${app}/gc.safepoint.${HOSTNAME}.log:time,uptime,level,tags:filecount=10,filesize=10M
     --add-opens java.base/java.lang=ALL-UNNAMED
 {% endif %}
-    " 
+    ${jetty_level}"
 
 java_agent_opts=" -javaagent:/opt/java_agent/{{java_agent}}={{java_agent_port}}:/opt/java_agent/jmx_exporter.yml"
 

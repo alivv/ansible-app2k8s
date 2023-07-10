@@ -28,16 +28,23 @@ data:
         target: SYSTEM_OUT
         PatternLayout:
           Pattern: "%d %p %t %c - %m%n"
+        thresholdFilter:
+          level: warn
+
       RollingFile:
-      - name: rollingFile
+        name: rollingFile
         fileName: /var/log/{{ k8s_pod_name }}/${env:HOSTNAME}.log
         filePattern: /var/log/{{ k8s_pod_name }}/${env:HOSTNAME}.%d{yyyy-MM-dd}.log
         Policies:
-        - TimeBasedTriggeringPolicy:
+          TimeBasedTriggeringPolicy:
             interval: 1
+            modulate: true
+          SizeBasedTriggeringPolicy:
+            size: 1GB
         append: true
         PatternLayout:
           Pattern: "%d %p %t %c - %m%n"
+
     Loggers:
       Root:
         value: all

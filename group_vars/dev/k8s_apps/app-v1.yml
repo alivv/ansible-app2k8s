@@ -32,7 +32,6 @@ k8s_pod_readinessProbe_periodSeconds: 10
 k8s_pod_readinessProbe_failureThreshold: 3
 k8s_pod_livenessProbe_initialDelaySeconds: 12
 
-k8s_jvm_active_processor_count: 1
 k8s_jvm_use_large_gc: false
 
 k8s_configmap_enabled: true
