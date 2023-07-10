@@ -6,3 +6,5 @@
 vault.pass
 #ansible.cfg
 roles/k8s/files/kubeconfig-*.yml
+README.md
+.gitignore
