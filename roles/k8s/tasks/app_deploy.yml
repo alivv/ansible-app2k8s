@@ -133,3 +133,23 @@
   when: copy_yml is not defined or
         copy_yml is not changed
   tags: never,restart,reconfig
+
+
+#wait
+- name: "Wait for {{ item }}"
+  pause: seconds="{{ wait|default(10) }}"
+  tags: never,wait
+
+- name: "scale 0 for {{ item }}"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    kubectl scale --replicas=0 deployment/{{ item }} -n {{ namespace }}
+  delegate_to: "{{ kubectl_node }}"
+  tags: never,scale0
+
+- name: "rollout for {{ item }}"
+  shell: |
+    export KUBECONFIG={{ kubeconfig }}
+    kubectl rollout undo deployments {{ item }} -n {{ namespace }}
+  delegate_to: "{{ kubectl_node }}"
+  tags: never,rollout
