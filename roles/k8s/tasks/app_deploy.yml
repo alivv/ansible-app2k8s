@@ -140,12 +140,21 @@
   pause: seconds="{{ wait|default(10) }}"
   tags: never,wait
 
+# scale
 - name: "scale 0 for {{ item }}"
   shell: |
     export KUBECONFIG={{ kubeconfig }}
     kubectl scale --replicas=0 deployment/{{ item }} -n {{ namespace }}
   delegate_to: "{{ kubectl_node }}"
   tags: never,scale0
+
+- name: "replicas={{ rs }} for {{ item }}"
+  shell: |
+    . /etc/profile
+    export KUBECONFIG={{ kubeconfig }}
+    kubectl scale deployment {{ item }} --replicas={{ rs }} -n {{ namespace }}
+  delegate_to: "{{ kubectl_node }}"
+  tags: never,scale,rs
 
 - name: "rollout for {{ item }}"
   shell: |
