@@ -90,7 +90,7 @@ java_memory_opts="
     $jvmGC"
 
 if [ -n "$jetty_start_level" ]; then
-    jetty_level="-Dorg.eclipse.jetty.LEVEL={{ jetty_start_level }}"
+    jetty_level="-Dorg.eclipse.jetty.LEVEL=${jetty_start_level}"
 else
     jetty_level="-Dorg.eclipse.jetty.LEVEL=WARN"
 fi
