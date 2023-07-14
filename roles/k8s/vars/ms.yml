@@ -25,6 +25,7 @@ ms_service_opts: -Duser.timezone={{ TZ | default('PRC') }}
     -Xms{{ ms_service_xmx }}m
     -Xmx{{ ms_service_xmx }}m
     -Dfile.encoding=UTF-8
+    -XX:ActiveProcessorCount=2
     -XX:+PrintGCDetails
     -XX:+PrintGCDateStamps
     -XX:+PrintPromotionFailure

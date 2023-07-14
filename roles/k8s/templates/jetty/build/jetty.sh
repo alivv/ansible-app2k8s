@@ -64,14 +64,12 @@ jetty_java_small_opts='-XX:+UseParallelGC
 [[ $xmx -ge 3276 ]] && jvmGC="${jetty_java_large_opts}" || jvmGC="${java_jmx_opts}"
 
 if [[ "$JVMX" = "true" ]]; then
-java_k8s_resource_opts="-XX:+UseContainerSupport
-    -Xmx${xmx}m -Xms${xms}m"
+java_k8s_resource_opts="-Xmx${xmx}m -Xms${xms}m
+    -XX:ActiveProcessorCount={{ k8s_jvm_active_processor_count }}"
 else
-java_k8s_resource_opts="-XX:+UseContainerSupport 
-{% if docker_build_base_image == 'jetty9-17' %}
-    -XX:MaxRAMPercentage=80
-{% endif %}
-    "
+java_k8s_resource_opts="-XX:+UnlockExperimentalVMOptions
+    -XX:+UseCGroupMemoryLimitForHeap
+    -XX:ActiveProcessorCount={{ k8s_jvm_active_processor_count }}"
 fi
 
 if [ "$AppEnv" = "qa" -o "$AppEnv" = "test" -o "$AppEnv" = "dev" ]; then
