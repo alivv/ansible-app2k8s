@@ -91,10 +91,10 @@ java_memory_opts="
     -XX:AutoBoxCacheMax=20000
     $jvmGC"
 
-if [[ $AppEnv == *qa* || $AppEnv == *dev* ]]; then
-    jetty_level="-Dorg.eclipse.jetty.LEVEL=WARN"
+if [ -n "$jetty_start_level" ]; then
+    jetty_level="-Dorg.eclipse.jetty.LEVEL={{ jetty_start_level }}"
 else
-    jetty_level="-Dorg.eclipse.jetty.LEVEL=OFF"
+    jetty_level="-Dorg.eclipse.jetty.LEVEL=WARN"
 fi
 
 java_log_opts=" -XX:+UnlockDiagnosticVMOptions

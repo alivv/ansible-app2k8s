@@ -102,6 +102,8 @@ spec:
           value: "{{ k8s_JVMX |default('true') }}"
         - name: AppEnv
           value: "{{ env }}"
+        - name: jetty_start_level
+          value: "{{ jetty_start_level }}"
         - name: POD_IP
           valueFrom:
             fieldRef:
