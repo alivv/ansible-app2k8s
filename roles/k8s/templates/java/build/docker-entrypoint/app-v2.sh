@@ -22,8 +22,15 @@ else
 	java_k8s_resource_opts="+UseContainerSupport"
 fi
 
+if [ "$JVMX" = "true" ]; then
+	java_k8s_resource_opts="-Xmx${xmx}m -Xms${xms}m"
+else
+	java_k8s_resource_opts="-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap"
+fi
+
 JAVA_OPTS="-Duser.timezone=$TZ -server 
         ${java_k8s_resource_opts} 
+		-XX:ActiveProcessorCount={{ k8s_jvm_active_processor_count }} \
 		-Djava.rmi.server.hostname=$HOSTNAME
 		-DserviceMate=$POD_IP 
 		{% if k8s_config_profiles_active_env == true %}-Dspring.profiles.active=${AppEnv:-qa} {% endif %} 
