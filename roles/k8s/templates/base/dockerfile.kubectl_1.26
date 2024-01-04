@@ -1,6 +1,6 @@
 FROM alpine:3.16
 
-ENV KUBE_VERSION=1.24.16
+ENV KUBE_VERSION=1.26.9
 
 # RUN apk add --update --no-cache ca-certificates bash \
 #  && apk add --update --no-cache -t deps curl \
@@ -20,6 +20,6 @@ WORKDIR /root
 # ENTRYPOINT ["kubectl"]
 CMD ["kubectl"]
 
-# docker build --no-cache -t kubectl:1.24.16 -f dockerfile.kubectl.sh .
+# docker build --no-cache -t kubectl:1.26.9 -f dockerfile.kubectl.sh .
 
-# docker build --no-cache -t registry.cn-hangzhou.aliyuncs.com/elvin/kubectl:1.24.16 -f dockerfile.kubectl.sh .
+# docker build --no-cache -t registry.cn-hangzhou.aliyuncs.com/elvin/kubectl:1.26.9 -f dockerfile.kubectl.sh .
