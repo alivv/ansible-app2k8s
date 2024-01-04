@@ -10,3 +10,26 @@
   when: k8s_version is version("1.22.17",">=")
   tags: never,test
 
+
+- name: "Set proxy environment"
+  set_fact:
+    proxy_env:
+      HTTP_PROXY: "http://qa.otms.cn:30851"
+      HTTPS_PROXY: "http://qa.otms.cn:30851"
+      # no_proxy: "localhost,127.0.0.1/8,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,222.71.205.32/29,.aliyuncs.com,.otms.cn"
+  tags: never,proxy
+
+- name: "Run shell with proxy"
+  shell: |
+      date
+      curl elvin.vip
+      echo $HTTPS_PROXY
+  environment: "{{ proxy_env | default({}) }}"
+  tags: never,proxy
+
+- name: pull test
+  docker_image:
+    name: "registry.k8s.io/pause:3.9"
+  environment: "{{ proxy_env | default({}) }}"
+  tags: never,proxy
+

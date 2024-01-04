@@ -40,7 +40,8 @@ data:
     dir  /data
     dbfilename dump.rdb
     # ram-limit*0.7|int #
-    maxmemory 716mb
+    {# maxmemory 716mb -#} 
+    maxmemory {{ ((redis.limits_ram |replace('Mi','') |int) * 0.5) |int }}mb
     maxmemory-policy volatile-lru
 
     {# ##注释

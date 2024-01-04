@@ -1,5 +1,5 @@
 ---
-{% if k8s_version|default(1.18) * 100 < 122 %}
+{% if k8s_version is version("1.21","<") %}
 apiVersion: batch/v1beta1
 {% else %}
 apiVersion: batch/v1
