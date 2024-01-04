@@ -16,6 +16,7 @@ spec:
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9913"
+        kubernetes.io/change-cause: {{ docker_image_tag }}
       labels:
         app.kubernetes.io/name: nginx
         app: {{ k8s_pod_name }}

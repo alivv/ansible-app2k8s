@@ -21,6 +21,7 @@ spec:
       annotations:
         prometheus.io/scrape: "jvm"
         prometheus.io/port: "{{java_agent_port}}"
+        kubernetes.io/change-cause: {{ docker_image_tag }}
       labels:
         app.kubernetes.io/name: mule
         app: {{ k8s_pod_name }}
