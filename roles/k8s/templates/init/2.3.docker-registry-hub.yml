@@ -1,0 +1,292 @@
+---
+#nfs
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kube-public
+  namespace: kube-public
+  labels:
+    pv: kube-public
+spec:
+  capacity:
+    storage: {{ k8s_data_pvc.resources_requests }}
+  accessModes: 
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: {{ k8s_data_pvc.server }}
+    path: {{ k8s_data_pvc.path }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kube-public
+  namespace: kube-public
+spec:
+  accessModes: 
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ k8s_data_pvc.resources_requests }}
+  selector:
+    matchLabels:
+      pv: kube-public
+
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docker-registry
+  namespace: kube-public
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docker-registry
+  template:
+    metadata:
+      labels:
+        app: docker-registry
+    spec:
+      containers:
+        - name: docker-registry
+          # image: registry:2.8
+          image: registry.aliyuncs.com/elvin/registry:2.8
+          ports:
+            - name: registry
+              containerPort: 80
+              protocol: TCP
+          volumeMounts:
+            - name: registry-storage
+              mountPath: /var/lib/registry
+              subPath: docker-registry
+            - mountPath: /etc/localtime
+              name: localtime
+              readOnly: true
+          env:
+            - name: REGISTRY_HTTP_ADDR
+              value: "0.0.0.0:80"
+            - name: REGISTRY_STORAGE_DELETE_ENABLED
+              value: "true"
+            - name: REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin
+              value: '[https://{{ registry_domain_name }}]'
+            # - name: REGISTRY_HTTP_HEADERS_Access-Control-Allow-Methods
+            #   value: '[HEAD,GET,OPTIONS,DELETE]'
+            # - name: REGISTRY_HTTP_HEADERS_Access-Control-Allow-Credentials
+            #   value: '[true]'
+            # - name: REGISTRY_HTTP_HEADERS_Access-Control-Allow-Headers
+            #   value: '[Authorization,Accept,Cache-Control]'
+            # - name: REGISTRY_HTTP_HEADERS_Access-Control-Expose-Headers
+            #   value: '[Docker-Content-Digest]'
+          startupProbe:
+            httpGet:
+              path: /v2/
+              port: registry
+          livenessProbe:
+            tcpSocket:
+              port: 80
+          readinessProbe:
+            tcpSocket:
+              port: 80
+          resources:
+            requests:
+              cpu: 200m
+              memory: 128Mi
+            limits:
+              cpu: 2000m
+              memory: 2048Mi
+          lifecycle: 
+            postStart: 
+              exec: 
+                command: 
+                - sh
+                - -c 
+                - |
+                  registry garbage-collect /etc/docker/registry/config.yml
+                  date
+      volumes:
+        - name: registry-storage
+          persistentVolumeClaim:
+            claimName: kube-public
+          # nfs:
+          #   server: 192.168.18.12
+          #   path: /data/nfs/docker
+        - name: localtime
+          hostPath:
+            path: /etc/localtime
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-registry
+  namespace: kube-public
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    app: docker-registry
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docker-registry-ui
+  namespace: kube-public
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docker-registry-ui
+  template:
+    metadata:
+      labels:
+        app: docker-registry-ui
+    spec:
+      containers:
+        - name: docker-registry-ui
+          # image: joxit/docker-registry-ui:2
+          image: registry.aliyuncs.com/elvin/docker-registry-ui:2
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /etc/localtime
+              name: localtime
+              readOnly: true
+          env:
+            - name: REGISTRY_TITLE
+              value: "Docker-Registry"
+            - name: DELETE_IMAGES
+              value: "true"
+            - name: PULL_URL
+              value: {{ registry_domain_name }}
+            - name: NGINX_PROXY_PASS_URL
+              value: http://docker-registry
+            - name: SINGLE_REGISTRY
+              value: "true"
+            - name: SHOW_CATALOG_NB_TAGS
+              value: "true"
+            # - name: SHOW_CONTENT_DIGEST
+            #   value: "true"
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            tcpSocket:
+              port: http
+          readinessProbe:
+            tcpSocket:
+              port: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 600m
+              memory: 128Mi
+          lifecycle: 
+            postStart: 
+              exec: 
+                command: 
+                - sh
+                - -c 
+                - |
+                  sed -i 's/worker_processes  auto/worker_processes  2/' /etc/nginx/nginx.conf
+                  date
+
+      volumes:
+        - name: localtime
+          hostPath:
+            path: /etc/localtime
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-registry-ui
+  namespace: kube-public
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    app: docker-registry-ui
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ registry_domain_name }}-crt
+  namespace: kube-public
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ hub_https_crt }}
+  tls.key: {{ hub_https_key }}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: docker-registry-auth
+  namespace: kube-public
+type: Opaque
+data:
+  auth: YWRtaW46JDJ5JDA1JGdwbnczbjBkcGNQd21MaXlMRTVNNk9wMGg2dzBLeURZR0gwdHlzNzUwU1RQSkJIZEpLRnhXCgo=
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: docker-registry-ui
+  namespace: kube-public
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-connections: "100"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/real-ip-header: "X-Forwarded-For"
+    nginx.ingress.kubernetes.io/proxy-body-size: "2g"
+    # cert-manager.io/cluster-issuer: "letsencrypt"
+    #auth
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: docker-registry-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required"
+spec:
+  tls:
+    - hosts:
+        - {{ registry_domain_name }}
+      secretName: {{ registry_domain_name }}-crt
+  rules:
+    - host: {{ registry_domain_name }}
+      http:
+        paths:
+          - path: /v2/
+            pathType: Prefix
+            backend:
+              service:
+                name: docker-registry
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: docker-registry-ui
+                port:
+                  number: 80
+
+---
+# namespace: kube-public
+# pvc-name:  kube-public
+# registry:  hub.elvin.vip
+# bash-auth: docker run --rm alivv/htpasswd admin docker |base64 -w0

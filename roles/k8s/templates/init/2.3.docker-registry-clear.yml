@@ -1,0 +1,37 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dokcer-registry-clear
+  namespace: kube-public
+  annotations:
+    description: "CronJob for dokcer-registry-clear"
+spec:
+  schedule: "0 0 * * 1"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: dokcer-registry-clear
+            image: registry.aliyuncs.com/elvin/bash:curl
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+            - mountPath: "/etc/localtime"
+              name: localtime
+              readOnly: true
+            command:
+            - bash
+            - -c
+            - |
+              wget -q https://gitee.com/alivv/elvin-demo/raw/master/shell/docker-registry-clear.sh
+              export REGISTRY_URL=http://docker-registry
+              export images_limit=10
+              export images_exclude='base.* node ubuntu '
+              bash docker-registry-clear.sh
+              date +"%F %T"
+          volumes:
+          - name: localtime
+            hostPath:
+              path: /etc/localtime

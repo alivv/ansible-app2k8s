@@ -112,11 +112,15 @@ init_list:
 # - 2.1.ingress-slb-tencent.yaml
 
 #ops
-- 2.3.permission-manager.yml
+- 2.3.permission-manager-v1.7.yml
 - 2.3.k8s-dashboard.v2.5.1.yml
 - 2.3.k8s-dashboard-ingress.yml
 - 2.3.ops-k8s-kubepi-role.yml
 - 2.3.ops-k8s-kubepi.yml
+
+#registry
+# - 2.3.docker-registry-hub.yml
+# - 2.3.docker-registry-clear.yml
 
 #StatefulSet
 # - 3.data-cassandra-standone.yml
