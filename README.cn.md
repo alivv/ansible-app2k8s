@@ -206,8 +206,8 @@ ansible-playbook nfs.yml -i env/dev -D -l docker-build -t nfs-server
 ansible-playbook nfs.yml -i env/dev -D -l k8s
 ```
 
-> 2024年添加`docker-registry`k8s集群部署
-> 详情 roles/k8s/templates/init/2.3.docker-registry-hub.yml
+> 2024年添加`docker-registry`k8s集群部署  
+> 详情 roles/k8s/templates/init/2.3.docker-registry-hub.yml  
 
 ###### #5.4.3 安装配置 kubectl
 
