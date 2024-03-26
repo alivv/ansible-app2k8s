@@ -605,13 +605,9 @@ spec:
         app: permission-manager
     spec:
       serviceAccountName: permission-manager
-{% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: {{ docker_registry_key }}
-{% endif %}
       containers:
         - name: permission-manager
-          image: registry.cn-hangzhou.aliyuncs.com/elvin/permission-manager:v1.9.0
+          image: registry.aliyuncs.com/elvin/permission-manager:v1.9.0
           ports:
             - containerPort: 4000
           env:
@@ -845,3 +841,4 @@ rules:
 #https://github.com/sighupio/permission-manager/blob/master/docs/installation.md
 #
 #https://www.jianshu.com/p/e4fd62ff6046
+#k8s v1.25 ++

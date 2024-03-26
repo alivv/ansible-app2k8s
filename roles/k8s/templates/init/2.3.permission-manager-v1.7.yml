@@ -617,14 +617,10 @@ spec:
         app: permission-manager
     spec:
       serviceAccountName: permission-manager
-{% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: "{{ docker_registry_key }}"
-{% endif %}
       containers:
         - name: permission-manager
           # image: quay.io/sighup/permission-manager:v1.7.0-rc3
-          image: {{ deploy_repository_url }}/{{ deploy_public_category }}permission-manager:v1.7.0-rc3
+          image: registry.aliyuncs.com/elvin/permission-manager:v1.7.0-rc3
           ports:
             - containerPort: 4000
           envFrom:
@@ -866,3 +862,4 @@ rules:
 ---
 #github
 #https://github.com/sighupio/permission-manager/blob/master/docs/installation.md
+# k8s v1.22 -> v1.24
