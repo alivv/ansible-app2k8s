@@ -74,8 +74,8 @@ spec:
         app: loki
     spec:
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: "{{docker_registry_key}}"
+      # imagePullSecrets:
+      # - name: "{{docker_registry_key}}"
 {% endif %}
       serviceAccountName: loki
       securityContext:
@@ -87,7 +87,7 @@ spec:
       containers:
         - name: loki
           # image: grafana/loki:2.6.1
-          image: {{ deploy_repository_url }}/{{ deploy_public_category }}loki:2.6.1
+          image: registry.aliyuncs.com/elvin/loki:2.6.1
           imagePullPolicy: IfNotPresent
           args:
             - -config.file=/etc/loki/loki.yaml

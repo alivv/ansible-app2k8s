@@ -45,8 +45,8 @@ spec:
         env: {{ env }}
     spec:
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-       - name: {{ docker_registry_key }}
+      # imagePullSecrets:
+      #  - name: {{ docker_registry_key }}
 {% endif %}
 {% if k8s_nodeAffinity == true %}
       affinity:
@@ -63,7 +63,8 @@ spec:
 {% endif %}
       containers:
       - name: {{ zookeeper.name }}
-        image: "{{ deploy_repository_url }}/{{ deploy_public_category }}zookeeper:{{ zookeeper.tag }}"
+        # image: "{{ deploy_repository_url }}/{{ deploy_public_category }}zookeeper:{{ zookeeper.tag }}"
+        image: "registry.aliyuncs.com/elvin/zookeeper:3.4"
         # imagePullPolicy: Always  # IfNotPresent
         volumeMounts:
         - name: datadir

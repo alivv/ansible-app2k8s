@@ -231,8 +231,8 @@ spec:
       name: custom-metrics-apiserver
     spec:
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: "{{docker_registry_key}}"
+      # imagePullSecrets:
+      # - name: "{{docker_registry_key}}"
 {% endif %}
       serviceAccountName: custom-metrics-apiserver
       containers:
@@ -240,8 +240,7 @@ spec:
         {%- if k8s_env == 'aws' %} 
         image: registry.k8s.io/prometheus-adapter/prometheus-adapter:v0.10.0
         {%- else %} 
-        image: {{ deploy_repository_url }}/{{ deploy_public_category }}prometheus-adapter:v0.10.0
-        # image: registry.cn-shanghai.aliyuncs.com/elvin/prometheus-adapter:v0.10.0
+        image: registry.aliyuncs.com/elvin/prometheus-adapter:v0.10.0
         {%- endif %} 
         args:
         - --secure-port=6443

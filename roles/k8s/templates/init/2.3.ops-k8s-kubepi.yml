@@ -59,14 +59,10 @@ spec:
       labels:
         app.kubernetes.io/name: kubepi
     spec:
-{% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: "{{ docker_registry_key }}"
-{% endif %}
       containers:
         - name: kubepi
           # image: kubeoperator/kubepi-server:latest
-          image: {{ deploy_repository_url }}/{{ deploy_public_category }}kubepi-server:v1.6.4
+          image: registry.aliyuncs.com/elvin/kubepi-server:v1.6.4
           imagePullPolicy: Always
           ports:
             - containerPort: 80

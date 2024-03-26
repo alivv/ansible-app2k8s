@@ -33,7 +33,7 @@ spec:
           serviceAccountName: job-pod-chrs
           containers:
           - name: job-pod-chrs
-            image: registry.cn-hangzhou.aliyuncs.com/elvin/kubectl:1.26.9
+            image: registry.aliyuncs.com/elvin/kubectl:1.26.9
             imagePullPolicy: IfNotPresent
             volumeMounts:
             - mountPath: "/etc/localtime"

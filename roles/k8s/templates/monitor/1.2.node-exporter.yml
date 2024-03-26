@@ -19,15 +19,16 @@ spec:
         name: node-exporter
     spec:
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: "{{docker_registry_key}}"
+      # imagePullSecrets:
+      # - name: "{{docker_registry_key}}"
 {% endif %}
       hostPID: true
       hostIPC: true
       hostNetwork: true
       containers:
       - name: node-exporter
-        image: {{ deploy_repository_url }}/{{ deploy_public_category }}node-exporter:v1.3.1
+        # image: {{ deploy_repository_url }}/{{ deploy_public_category }}node-exporter:v1.3.1
+        image: registry.aliyuncs.com/elvin/node-exporter:v1.3.1
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9100

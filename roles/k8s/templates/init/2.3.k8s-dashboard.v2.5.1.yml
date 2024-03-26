@@ -200,13 +200,14 @@ spec:
         seccompProfile:
           type: RuntimeDefault
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: "{{ docker_registry_key }}"
+      # imagePullSecrets:
+      # - name: "{{ docker_registry_key }}"
 {% endif %}
       containers:
         - name: kubernetes-dashboard
           # image: kubernetesui/dashboard:v2.5.1
-          image: {{ deploy_repository_url }}/{{ deploy_public_category }}dashboard:v2.5.1
+          # image: {{ deploy_repository_url }}/{{ deploy_public_category }}dashboard:v2.5.1
+          image: registry.aliyuncs.com/elvin/dashboard:v2.5.1
           imagePullPolicy: Always
           ports:
             - containerPort: 8443
@@ -303,7 +304,8 @@ spec:
       containers:
         - name: dashboard-metrics-scraper
           # image: kubernetesui/metrics-scraper:v1.0.7
-          image: {{ deploy_repository_url }}/{{ deploy_public_category }}metrics-scraper:v1.0.7
+          # image: {{ deploy_repository_url }}/{{ deploy_public_category }}metrics-scraper:v1.0.7
+          image: registry.aliyuncs.com/elvin/metrics-scraper:v1.0.7
           ports:
             - containerPort: 8000
               protocol: TCP

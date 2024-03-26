@@ -5193,14 +5193,10 @@ spec:
       serviceAccountName: cert-manager-cainjector
       securityContext:
         runAsNonRoot: true
-{% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: {{ docker_registry_key }}
-{% endif %}
       containers:
         - name: cert-manager
           # image: "quay.io/jetstack/cert-manager-cainjector:v1.9.2"
-          image: "{{ deploy_repository_url }}/{{ deploy_public_category }}cert-manager-cainjector:v1.9.2"
+          image: "registry.aliyuncs.com/elvin/cert-manager-cainjector:v1.9.2"
           imagePullPolicy: IfNotPresent
           args:
           - --v=2
@@ -5250,14 +5246,10 @@ spec:
       serviceAccountName: cert-manager
       securityContext:
         runAsNonRoot: true
-{% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: {{ docker_registry_key }}
-{% endif %}
       containers:
         - name: cert-manager
           # image: "quay.io/jetstack/cert-manager-controller:v1.9.2"
-          image: "{{ deploy_repository_url }}/{{ deploy_public_category }}cert-manager-controller:v1.9.2"
+          image: "registry.aliyuncs.com/elvin/cert-manager-controller:v1.9.2"
           imagePullPolicy: IfNotPresent
           args:
           - --v=2
@@ -5308,14 +5300,10 @@ spec:
       serviceAccountName: cert-manager-webhook
       securityContext:
         runAsNonRoot: true
-{% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: {{ docker_registry_key }}
-{% endif %}
       containers:
         - name: cert-manager
           # image: "quay.io/jetstack/cert-manager-webhook:v1.9.2"
-          image: "{{ deploy_repository_url }}/{{ deploy_public_category }}cert-manager-webhook:v1.9.2"
+          image: "registry.aliyuncs.com/elvin/cert-manager-webhook:v1.9.2"
           imagePullPolicy: IfNotPresent
           args:
           - --v=2

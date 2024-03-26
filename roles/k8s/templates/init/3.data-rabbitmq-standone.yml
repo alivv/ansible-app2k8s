@@ -46,8 +46,8 @@ spec:
         env: {{ env }}
     spec:
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: {{ docker_registry_key }}
+      # imagePullSecrets:
+      # - name: {{ docker_registry_key }}
 {% endif %}
 {% if k8s_nodeAffinity == true %}
       affinity:
@@ -65,7 +65,8 @@ spec:
       # terminationGracePeriodSeconds: 10
       containers:
       - name: {{ rabbitmq.name }}
-        image: "{{ deploy_repository_url }}/{{ deploy_public_category }}rabbitmq:{{ rabbitmq.tag }}"
+        # image: "{{ deploy_repository_url }}/{{ deploy_public_category }}rabbitmq:{{ rabbitmq.tag }}"
+        image: "registry.aliyuncs.com/elvin/rabbitmq:3.8.22-management"
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: datadir

@@ -42,8 +42,8 @@ spec:
         env: {{ env }}
     spec:
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: {{ docker_registry_key }}
+      # imagePullSecrets:
+      # - name: {{ docker_registry_key }}
 {% endif %}
 {% if k8s_nodeAffinity == true %}
       affinity:
@@ -60,7 +60,8 @@ spec:
 {% endif %}
       containers:
       - name: {{ cassandra.name }}
-        image: "{{ deploy_repository_url }}/{{ deploy_public_category }}cassandra:{{ cassandra.tag }}"
+        # image: "{{ deploy_repository_url }}/{{ deploy_public_category }}cassandra:{{ cassandra.tag }}"
+        image: "registry.aliyuncs.com/elvin/cassandra:2.1.22"
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: datadir

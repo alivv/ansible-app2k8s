@@ -18,13 +18,13 @@ spec:
         app: grafana
     spec:
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: "{{docker_registry_key}}"
+      # imagePullSecrets:
+      # - name: "{{docker_registry_key}}"
 {% endif %}
       containers:
       - name: grafana
         # image: grafana/grafana:7
-        image: {{ deploy_repository_url }}/{{ deploy_public_category }}grafana:7.5.10
+        image: registry.aliyuncs.com/elvin/grafana:7.5.10
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000

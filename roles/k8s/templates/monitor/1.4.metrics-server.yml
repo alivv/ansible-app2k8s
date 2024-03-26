@@ -131,8 +131,8 @@ spec:
         k8s-app: metrics-server
     spec:
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: "{{docker_registry_key}}"
+      # imagePullSecrets:
+      # - name: "{{docker_registry_key}}"
 {% endif %}
       containers:
       - args:
@@ -142,7 +142,8 @@ spec:
         - --kubelet-use-node-status-port
         - --metric-resolution=15s
         - --kubelet-insecure-tls                    # 加上该启动参数
-        image: {{ deploy_repository_url }}/{{ deploy_public_category }}metrics-server:0.6.1
+        # image: k8s.gcr.io/metrics-server/metrics-server:v0.6.1
+        image: registry.aliyuncs.com/elvin/metrics-server:0.6.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3

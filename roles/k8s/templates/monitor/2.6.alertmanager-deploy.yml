@@ -20,14 +20,14 @@ spec:
       securityContext:
         runAsUser: 0
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: "{{docker_registry_key}}"
+      # imagePullSecrets:
+      # - name: "{{docker_registry_key}}"
 {% endif %}
 
       containers:
       - name: alertmanager
-        # image: prom/alertmanager:v0.21.0
-        image: {{ deploy_repository_url }}/{{ deploy_public_category }}alertmanager:v0.24.0
+        # image: prom/alertmanager:v0.24.0
+        image: registry.aliyuncs.com/elvin/alertmanager:v0.24.0
         imagePullPolicy: IfNotPresent
         args:
         - "--config.file=/etc/alertmanager/config.yml"
@@ -65,8 +65,8 @@ spec:
 
       - name: dingtalk
         # image: alivv/dingtalk:latest
-        image: {{ deploy_repository_url }}/{{ deploy_public_category }}dingtalk:latest
-        imagePullPolicy: Always
+        image: registry.aliyuncs.com/elvin/dingtalk:latest
+        # imagePullPolicy: Always
         args:
         - "--config.file=/etc/dingtalk/config.yml"
         - "--web.enable-lifecycle"

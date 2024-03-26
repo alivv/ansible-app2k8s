@@ -140,8 +140,8 @@ spec:
         env: {{ env }}
     spec:
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: {{ docker_registry_key }}
+      # imagePullSecrets:
+      # - name: {{ docker_registry_key }}
 {% endif %}
       # terminationGracePeriodSeconds: 15
 {% if k8s_nodeAffinity == true %}
@@ -159,7 +159,8 @@ spec:
 {% endif %}
       containers:
       - name: {{ redis.name }}
-        image: "{{ deploy_repository_url }}/{{ deploy_public_category }}redis:{{ redis.tag }}"
+        # image: "{{ deploy_repository_url }}/{{ deploy_public_category }}redis:{{ redis.tag }}"
+        image: "registry.aliyuncs.com/elvin/redis:5.0.12-alpine"
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - mountPath: "/data"
@@ -221,7 +222,8 @@ spec:
           timeoutSeconds: 2
 
       - name: redis-exporter
-        image: "{{ deploy_repository_url }}/{{ deploy_public_category }}redis_exporter:{{ redis.exporter_tag }}"
+        # image: "{{ deploy_repository_url }}/{{ deploy_public_category }}redis_exporter:{{ redis.exporter_tag }}"
+        image: "registry.aliyuncs.com/elvin/redis_exporter:v1.33.0-alpine"
         resources:
           requests:
             cpu: 100m

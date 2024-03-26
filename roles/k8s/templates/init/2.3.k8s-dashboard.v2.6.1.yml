@@ -191,7 +191,7 @@ spec:
       containers:
         - name: kubernetes-dashboard
           # image: kubernetesui/dashboard:v2.6.1
-          image: registry.cn-hangzhou.aliyuncs.com/elvin/dashboard:v2.6.1
+          image: registry.aliyuncs.com/elvin/dashboard:v2.6.1
           imagePullPolicy: Always
           ports:
             - containerPort: 8443
@@ -284,7 +284,7 @@ spec:
       containers:
         - name: dashboard-metrics-scraper
           # image: kubernetesui/metrics-scraper:v1.0.8
-          image: registry.cn-hangzhou.aliyuncs.com/elvin/metrics-scraper:v1.0.8
+          image: registry.aliyuncs.com/elvin/metrics-scraper:v1.0.8
           ports:
             - containerPort: 8000
               protocol: TCP

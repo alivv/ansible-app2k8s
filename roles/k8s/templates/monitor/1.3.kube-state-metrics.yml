@@ -182,11 +182,11 @@ spec:
     spec:
       automountServiceAccountToken: true
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: "{{docker_registry_key}}"
+      # imagePullSecrets:
+      # - name: "{{docker_registry_key}}"
 {% endif %}
       containers:
-      - image: {{ deploy_repository_url }}/{{ deploy_public_category }}kube-state-metrics:2.5.0
+      - image: registry.aliyuncs.com/elvin/kube-state-metrics:2.5.0
         livenessProbe:
           httpGet:
             path: /healthz

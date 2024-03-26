@@ -64,14 +64,14 @@ spec:
         app: promtail
     spec:
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: "{{docker_registry_key}}"
+      # imagePullSecrets:
+      # - name: "{{docker_registry_key}}"
 {% endif %}
       serviceAccountName: loki-promtail
       containers:
         - name: promtail
           # image: grafana/promtail:2.6.1
-          image: {{ deploy_repository_url }}/{{ deploy_public_category }}promtail:2.6.1
+          image: registry.aliyuncs.com/elvin/promtail:2.6.1
           imagePullPolicy: IfNotPresent
           args: 
           - -config.file=/etc/promtail/promtail.yaml

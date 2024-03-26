@@ -46,8 +46,8 @@ spec:
       securityContext:
         runAsUser: 0
 {% if docker_registry_key|default('') != '' %}
-      imagePullSecrets:
-      - name: {{ docker_registry_key }}
+      # imagePullSecrets:
+      # - name: {{ docker_registry_key }}
 {% endif %}
 {% if k8s_nodeAffinity == true %}
       affinity:
@@ -65,7 +65,8 @@ spec:
       # terminationGracePeriodSeconds: 15
       containers:
       - name: {{ minio.name }}
-        image: "{{ deploy_repository_url }}/{{ deploy_public_category }}minio:{{ minio.tag }}"
+        # image: "{{ deploy_repository_url }}/{{ deploy_public_category }}minio:{{ minio.tag }}"
+        image: "registry.aliyuncs.com/elvin/minio:2020"
         imagePullPolicy: IfNotPresent
         workingDir: /data
         command:
