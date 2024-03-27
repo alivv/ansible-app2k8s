@@ -192,7 +192,7 @@ spec:
               memory: 64Mi
             limits:
               cpu: 600m
-              memory: 128Mi
+              memory: 256Mi
           lifecycle: 
             postStart: 
               exec: 
