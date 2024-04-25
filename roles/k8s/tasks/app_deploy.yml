@@ -122,6 +122,7 @@
     src:    "{{ app_tag_dir }}"
   delegate_to: "{{ deploy_yml_node }}"
   when: app_tag_dir != ''
+  failed_when: false
   tags: yml,config,deploy,redeploy
 
 # restart when update config

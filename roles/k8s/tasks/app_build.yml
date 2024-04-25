@@ -78,6 +78,7 @@
     repository: "{{ local_repository_url }}/{{ local_repository_category }}{{ item }}:latest"
     force: yes
     push: yes
+  failed_when: false
   tags: never,latest
 
 #Create a repository for AWS
