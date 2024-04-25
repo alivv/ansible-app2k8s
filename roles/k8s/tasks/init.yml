@@ -34,7 +34,9 @@
 - name: "Delete for init"
   shell: |
     export KUBECONFIG={{ kubeconfig }}
+    {% if item != '1.1.namespace.yml' %}
     {{kubectl}} delete -f {{ deploy_yml_url }}/{{ namespace }}/init/{{ item }}
+    {% endif %}
   delegate_to: "{{ kubectl_node }}"
   with_items: "{% if initlist == 'all' %}{{ init_list | sort(reverse=true) }}{% else %}{{ initlist | sort(reverse=true) }}{% endif %}"
   tags: never,init-rm
