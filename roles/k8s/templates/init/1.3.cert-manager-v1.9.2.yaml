@@ -5437,5 +5437,5 @@ webhooks:
         path: /validate
 
 #doc
-#https://github.com/cert-manager/cert-manager
+#https://cert-manager.io/docs/releases/
 #https://github.com/cert-manager/cert-manager/releases/download/v1.9.2/cert-manager.yaml
