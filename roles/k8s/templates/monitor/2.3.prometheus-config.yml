@@ -231,7 +231,7 @@ data:
       rules:
 
       - alert: InstanceDown
-        expr: up{job != "jmx_exporter"} == 0
+        expr: up{job != "jmx_exporter", pod !~ "velero.*"} == 0
         for: 1m
         labels:
           severity: warning
