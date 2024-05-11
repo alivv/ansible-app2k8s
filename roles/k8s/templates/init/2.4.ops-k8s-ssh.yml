@@ -1,0 +1,84 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: ops-k8s-ssh
+  namespace: kube-public
+data:
+  id_rsa: >-
+    c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFCQVFDem9wZ0FqWXZkSnJtLytkMjBOUU9JU3FpOU0zNldGUnkxSFR1SkNKRTRMdWltUUFwbWt5VXJ5Q3c5RHBOZ3lLRzBQcVU0QXNndDU2VW1FeUJEU3gydllaT2grZ2NDdUUwTjdsZHRHRG0xVUFlVHRGc3NqSnkvaTcyQk52QlpOYjZWSEZTYWtNWStsaHJmRXY3eitINmNMdVhPM3VjVkJ0M1hDVkp5MlBnRDMzeDdmcGNsbmptSEZxTnV1MkRTZkdzcG5GajFXRTNHM3phdjdxMFNmV0RmUE1vNENUTXh4N2krUFZUNWxHTkNRb1FXb1NiU1JnbXp3elgwSi85RXprOHNVOUJPUDZ6SXhNQ2gwd2ZoQWdYbU5JQXd6VWFhdEQ4QTJhdFo1ZHhsN0VtbkJMU1RDejExOG4wQVQwK3BHbTZNYlFILzNBQWNyV0xYa3FuaWlxa2wgRWx2aW4K
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kube-public
+  name: ops-k8s-ssh
+spec:
+  selector:
+    app: ops-k8s-ssh
+  ports:
+    - name: ssh
+      port: 22
+      targetPort: 22
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kube-public
+  name: ops-k8s-ssh
+  labels:
+    app: ops-k8s-ssh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ops-k8s-ssh
+  template:
+    metadata:
+      labels:
+        app: ops-k8s-ssh
+    spec:
+      containers:
+        - name: ops-k8s-ssh
+          # image: registry.aliyuncs.com/elvin/alpine:ssh
+          image: registry.aliyuncs.com/elvin/ubuntu:ssh
+          imagePullPolicy: Always
+          command:
+          - bash
+          - -c
+          - |
+            cat /root/.ssh/keys/id_rsa >/root/.ssh/authorized_keys
+            chmod 600 /root/.ssh/authorized_keys
+            pwd=$(date |base64 |head -c 18)
+            echo $pwd
+            echo "root:$pwd" | chpasswd
+            exec /usr/sbin/sshd -D
+          ports:
+            - containerPort: 22
+          resources:
+            requests:
+              cpu: 100m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          startupProbe:
+            failureThreshold: 10
+            tcpSocket:
+              port: 22
+          livenessProbe:
+            tcpSocket:
+              port: 22
+          readinessProbe:
+            tcpSocket:
+              port: 22
+          volumeMounts:
+            - name: data-key
+              mountPath: /root/.ssh/keys
+      volumes:
+        - name: data-key
+          secret:
+            secretName: ops-k8s-ssh
