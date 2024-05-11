@@ -45,6 +45,10 @@
 
 - hosts: docker-build
   # run_once: yes
+  environment:
+    KUBECONFIG: "{{ kubeconfig }}"
+    #default config.json is in $HOME/.docker/
+    #DOCKER_CONFIG: /root/.docker/k8s
   tasks:
 
   #show list
