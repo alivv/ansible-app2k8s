@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kubepi-user
-  namespace: kube-system
+  namespace: kube-public
 
 ---
 
@@ -18,7 +18,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kubepi-user
-    namespace: kube-system
+    namespace: kube-public
 
 ##############################自定义权限#
 ---
