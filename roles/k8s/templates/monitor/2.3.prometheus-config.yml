@@ -492,7 +492,7 @@ data:
           description: "Redis has been down \n {{$labels.namespace}} {{$labels.pod}}"
 
       - alert: RedisMissingBackup
-        expr: time() - redis_rdb_last_save_timestamp_seconds > 60 * 60 * 24
+        expr: time() - redis_rdb_last_save_timestamp_seconds > 60 * 60 * 24 * 3
         for: 5m
         labels:
           severity: warning
