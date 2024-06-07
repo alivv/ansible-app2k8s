@@ -107,7 +107,7 @@ spec:
   - name: https
     port: 443
     protocol: TCP
-    targetPort: https
+    targetPort: 4443
   selector:
     k8s-app: metrics-server
 ---
@@ -137,6 +137,7 @@ spec:
         - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
         - --kubelet-use-node-status-port
         - --metric-resolution=15s
+        - --kubelet-insecure-tls                    # 加上该启动参数
         # image: registry.k8s.io/metrics-server/metrics-server:v0.6.4
         image: registry.aliyuncs.com/elvin/metrics-server:v0.6.4
         imagePullPolicy: IfNotPresent
@@ -144,19 +145,19 @@ spec:
           failureThreshold: 3
           httpGet:
             path: /livez
-            port: https
+            port: 4443
             scheme: HTTPS
           periodSeconds: 10
         name: metrics-server
         ports:
         - containerPort: 4443
-          name: https
+          # name: https
           protocol: TCP
         readinessProbe:
           failureThreshold: 3
           httpGet:
             path: /readyz
-            port: https
+            port: 4443
             scheme: HTTPS
           initialDelaySeconds: 20
           periodSeconds: 10
@@ -165,8 +166,8 @@ spec:
             cpu: 100m
             memory: 200Mi
           limits:
-            cpu: 500m
-            memory: 512Mi
+            cpu: 1000m
+            memory: 1024Mi
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -198,3 +199,6 @@ spec:
     namespace: kube-system
   version: v1beta1
   versionPriority: 100
+
+---
+#https://github.com/kubernetes-sigs/metrics-server/releases
