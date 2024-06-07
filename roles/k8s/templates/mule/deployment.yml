@@ -167,8 +167,13 @@ spec:
           name: {{ k8s_pod_name }}-config
 {% if k8s_mount_log_file_storage == true %}
       - name: log
+{% if logHostPath == true %}
+        hostPath:
+          path: /data/log/{{ namespace }}
+{% else %}
         persistentVolumeClaim:
           claimName: {{ k8s_log_pvc.name }}
+{% endif %}
 {% endif %}
 
 {% if k8s_hpa_enabled == true  and item not in pod_not_hpa %}

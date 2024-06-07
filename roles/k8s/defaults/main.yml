@@ -48,6 +48,7 @@ docker_registry_key: ''
 k8s_nodeAffinity: false
 k8s_revisionHistoryLimit: 5
 k8s_hpa_enabled: false
+logHostPath: false
 
 java_agent_port: 9123
 java_agent: jmx_prometheus_javaagent-0.16.1.jar

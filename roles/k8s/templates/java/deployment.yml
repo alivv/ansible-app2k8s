@@ -229,8 +229,13 @@ spec:
             path: log4j2.yml
 {% if k8s_log_pvc_add == true %}
       - name: log
+{% if logHostPath == true %}
+        hostPath:
+          path: /data/log/{{ namespace }}
+{% else %}
         persistentVolumeClaim:
           claimName: {{ k8s_log_pvc.name }}
+{% endif %}
 {% endif %}
 {% if k8s_data_pvc_add == true %}
       - name: data
