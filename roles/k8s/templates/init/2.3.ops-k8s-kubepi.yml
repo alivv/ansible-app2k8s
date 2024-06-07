@@ -62,8 +62,8 @@ spec:
     spec:
       containers:
         - name: kubepi
-          # image: kubeoperator/kubepi-server:latest
-          image: registry.aliyuncs.com/elvin/kubepi-server:v1.6.4
+          # image: 1panel/kubepi:latest
+          image: registry.aliyuncs.com/elvin/kubepi:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
