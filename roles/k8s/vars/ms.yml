@@ -36,6 +36,11 @@ ms_service_opts: -Duser.timezone={{ TZ | default('PRC') }}
     {% if ms_service_xmx >= 6400 %}{{ ms_service_cms_opts }}{% endif %}
     -Djava.io.tmpdir=/var/tmp
     -Dlog4j2.formatMsgNoLookups=true
+    -XX:+UseGCLogFileRotation
+    -XX:NumberOfGCLogFiles=5
+    -XX:GCLogFileSize=100M
+    -Xloggc:/var/log/{{ item }}/gc.${HOSTNAME}.log
+    -Dlogging.file=/var/log/{{ item }}/${HOSTNAME}.log
 
 app_port: "{% if item == 'ms-eureka' %}8761{% else %}8080{% endif %}"
 
@@ -50,13 +55,11 @@ java_agent_opts: "-javaagent:/opt/java_agent/{{java_agent}}={{java_agent_port}}:
 start_app_opts: 
   "{% if item == 'ms-eureka' %}
   /usr/local/java/bin/java -Dserver.port={{ app_port }} {{ ms_service_opts }} 
-  -Xloggc:/var/log/{{ item }}/gc.$(hostname).log -Dlogging.file=/var/log/{{ item }}/$(hostname).log
   -Deureka.instance.prefer-ip-address=false -Deureka.instance.hostname=$(hostname).{{ item }} 
   -Deureka.environment={{env}} -Deureka.client.register-with-eureka=true
   -Deureka.client.serviceUrl.defaultZone={{ defaultZone }} {{ java_agent_opts }} -jar /opt/app/{{ service_package }}
   {% else %}
   /usr/local/java/bin/java -Dserver.port={{ app_port }} {{ ms_service_opts }} 
-  -Xloggc:/var/log/{{ item }}/gc.$(hostname).log -Dlogging.file=/var/log/{{ item }}/$(hostname).log
   -Dspring.profiles.active={{ env }}
   -Deureka.instance.preferIpAddress=true
   -Dserver.servlet.context-path={{ k8s_check_path }}

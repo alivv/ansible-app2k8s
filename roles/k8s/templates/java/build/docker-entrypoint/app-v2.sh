@@ -5,11 +5,8 @@ APP_LOG=/var/log/{{ item }}
 
 #logs
 cd /var/log/{{ item }}
-[ -f gc.${HOSTNAME}.log ] || { touch gc.${HOSTNAME}.log ; }
 [ -f ${HOSTNAME}.log ]    || { touch ${HOSTNAME}.log ; }
-# ln -fs gc.${HOSTNAME}.log  gc.log
 # ln -fs ${HOSTNAME}.log     {{ item }}.log
-ln -fs /var/log/{{ item }}/gc.${HOSTNAME}.log /var/log/app/gc.log
 ln -fs /var/log/{{ item }}/${HOSTNAME}.log /var/log/app/{{ item }}.log
 cd ${APP_HOME}
 

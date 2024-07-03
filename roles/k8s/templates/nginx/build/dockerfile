@@ -4,12 +4,13 @@ FROM registry.cn-shanghai.aliyuncs.com/elvin/nginx:1.18-alpine-vts
 # {{ansible_date_time.date}}
 COPY dockerfile /etc/dockerfile/
 
-ENV SERVICE_NAME='{{ docker_image_name }}' \
+ENV app_name={{ docker_image_name }} \
+    app_version={{ docker_image_tag }} \
     ENV=/etc/profile \
 {% for web_item in docker_build_static_list %}
     {{ web_item.name }}={{ web_item.version }} \
 {% endfor %}
-    service_version='{{ docker_image_tag }}'
+    service_version={{ docker_image_tag }}
 
 {# COPY nginx.conf /etc/nginx/ -#} 
 

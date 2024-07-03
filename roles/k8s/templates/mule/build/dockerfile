@@ -3,8 +3,8 @@ FROM registry.cn-shanghai.aliyuncs.com/elvin/mule:3.7.0-jdk8u202-focal
 
 USER root
 
-ENV SERVICE_NAME={{ docker_image_name }}
-ENV SERVICE_VERSION={{ docker_image_tag }}
+ENV app_name={{ item }} \
+    app_version={{ docker_image_tag }}
 
 COPY healtcheck.sh /opt/
 

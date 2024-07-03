@@ -15,13 +15,10 @@ fi
 #logs
 cd /var/log/${app}
 [ -f gc.${HOSTNAME}.log ] || { touch gc.${HOSTNAME}.log ; }
-[ -f vm.${HOSTNAME}.log ] || { touch vm.${HOSTNAME}.log ; }
 [ -f ${HOSTNAME}.log ]    || { touch ${HOSTNAME}.log ; }
 # ln -fs gc.${HOSTNAME}.log  gc.log
-# ln -fs vm.${HOSTNAME}.log  vm.log
 # ln -fs ${HOSTNAME}.log     ${app}.log
 ln -fs /var/log/${app}/gc.${HOSTNAME}.log /var/log/app/gc.log
-ln -fs /var/log/${app}/vm.${HOSTNAME}.log /var/log/app/vm.log
 ln -fs /var/log/${app}/${HOSTNAME}.log /var/log/app/${app}.log
 {% if docker_build_base_image == 'jetty9-17' %}
 #java 17
@@ -96,12 +93,12 @@ else
 fi
 
 java_log_opts=" -XX:+UnlockDiagnosticVMOptions
-    -XX:+LogVMOutput
-    -XX:LogFile=/var/log/${app}/vm.${HOSTNAME}.log
-    -XX:+PrintCommandLineFlags
 {% if docker_build_base_image == 'jetty9' %}
     -XX:-DisplayVMOutput
     -XX:+PrintGCDetails
+    -XX:+UseGCLogFileRotation
+    -XX:NumberOfGCLogFiles=5
+    -XX:GCLogFileSize=100M
     -Xloggc:/var/log/${app}/gc.${HOSTNAME}.log
     -XX:+PrintGCDateStamps
     -XX:+PrintGCTimeStamps

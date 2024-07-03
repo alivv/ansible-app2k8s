@@ -3,8 +3,8 @@ FROM registry.cn-shanghai.aliyuncs.com/elvin/java:{{ docker_build_base_image }}
 
 USER root
 
-ENV SERVICE_NAME={{ docker_image_name }}
-ENV SERVICE_VERSION={{ docker_image_tag }}
+ENV app_name={{ item }} \
+    app_version={{ docker_image_tag }}
 ENV APP_BASE=/opt
 ENV APP_HOME=$APP_BASE/{{ docker_image_name }}
 
