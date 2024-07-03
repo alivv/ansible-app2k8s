@@ -210,6 +210,7 @@ Redismx: "{% if (redis.limits_ram is search('Mi') %}{{ ((redis.limits_ram |repla
 CAxmx: "{% if cassandra.limits_ram is search('Mi') %}{{ ((cassandra.limits_ram |replace('Mi','') |int) * 0.8) |int }}{% else %}{{ ((cassandra.limits_ram |replace('Gi','') |int) * 1024 * 0.8) |int }}{% endif %}"
 CAnew: "{% if cassandra.limits_ram is search('Mi') %}{{ ((cassandra.limits_ram |replace('Mi','') |int) * 0.2) |int }}{% else %}{{ ((cassandra.limits_ram |replace('Gi','') |int) * 1024 * 0.2) |int }}{% endif %}"
 
+lmit_gb: "{% if (k8s_pod_resources_limits_memory |search('Mi')) %}{{ ((k8s_pod_resources_limits_memory |replace('Mi','') |int) /1024 ) |int }}{% elif (k8s_pod_resources_limits_memory |search('Gi')) %}{{ ((k8s_pod_resources_limits_memory |replace('Gi','') |int) * 1) |int }}{% else %}{{ ((k8s_pod_resources_limits_memory |int) / 1024) |int }}{% endif %}"
 
 ##############################
 #ingress for app

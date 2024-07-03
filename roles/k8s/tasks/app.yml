@@ -23,3 +23,9 @@
   include: app_deploy.yml
   when: docker_build_service_type != ''
 
+#app limit-list
+- name: "limit-list /tmp/limits.{{ namespace }}.txt"
+  shell: |
+    echo "{{ item }} {{ rs }} {{ lmit_gb }}">>/tmp/limits.{{ namespace }}.txt
+  delegate_to: localhost
+  tags: never,limit-list
