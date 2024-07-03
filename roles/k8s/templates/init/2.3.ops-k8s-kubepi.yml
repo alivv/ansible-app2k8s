@@ -119,6 +119,9 @@ metadata:
     nginx.ingress.kubernetes.io/limit-connections: '100'
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      rewrite ^/kubepi/dashboard/img/KubePi-red.01498bf3.png$ https://otms-files.oss-cn-shanghai.aliyuncs.com/k8s/img/k8s-ui.png permanent;
+      rewrite ^/kubepi/img/KubePi-red.01498bf3.png$ https://otms-files.oss-cn-shanghai.aliyuncs.com/k8s/img/k8s-ui.png permanent;
 spec:
   tls:
   - secretName: kubepi-https-crt
