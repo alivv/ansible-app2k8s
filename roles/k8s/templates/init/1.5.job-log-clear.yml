@@ -10,7 +10,7 @@ metadata:
   namespace: {{ namespace }}
 spec:
   schedule: "1 0 * * *"
-{% if k8s_version|default(1.18) is version("1.26",">") %}
+{% if k8s_version|default(1.18) is version("1.25",">") %}
   timeZone: "{{ TZ | default('Asia/Shanghai') }}"
 {% endif %}
   jobTemplate:
@@ -18,13 +18,9 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
-{% if docker_registry_key|default('') != '' %}
-          imagePullSecrets:
-          - name: "{{ docker_registry_key }}"
-{% endif %}
           containers:
           - name: job-log-clear
-            image: {{ deploy_repository_url }}/{{ deploy_public_category }}bash:5.1.4
+            image: egistry.aliyuncs.com/elvin/bash:find
             imagePullPolicy: IfNotPresent
             volumeMounts:
             - name: log
@@ -42,7 +38,7 @@ spec:
               echo "Clean Up $n logs files from $d days ago"
               find /var/log/k8s -type f -size 0c -delete
               find /var/log/k8s -type f -mtime +$d -delete
-              find /var/log/k8s -type f -name "gc.*.log"  -o -name "vm.*.log" |xargs truncate -s 0
+              find /var/log/k8s -type f -size +1k -name "gc.*.log"  -o -name "vm.*.log" |xargs truncate -s 0
               find /var/log/k8s -type f -mtime +0 -size +1k -name "*.log" |egrep -v "gz$" |xargs gzip
               date +"%F %T %Z %:z"
 
