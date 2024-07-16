@@ -70,6 +70,26 @@ spec:
           limits:
             cpu: 1000m
             memory: 1024Mi
+{#- #add db list 
+        lifecycle: 
+          postStart: 
+            exec: 
+              command: 
+              - bash
+              - -c 
+              - |
+                date
+                config_file=/opt/bitnami/phppgadmin/conf/config.inc.php
+                sed -i 's/^?>//' $config_file
+                echo "        \$conf['servers'][1]['desc'] = 'db-1';"  >>$config_file
+                echo "        \$conf['servers'][1]['host'] = '192.168.21.101';" >>$config_file
+                echo "        \$conf['servers'][1]['port'] = 5432;" >>$config_file
+                echo "        \$conf['servers'][2]['desc'] = 'db-2';"  >>$config_file
+                echo "        \$conf['servers'][2]['host'] = '192.168.21.62';" >>$config_file
+                echo "        \$conf['servers'][2]['port'] = 5432;" >>$config_file
+                echo '?>' >>$config_file
+                hostname
+#} 
 
 ---
 #ingress
