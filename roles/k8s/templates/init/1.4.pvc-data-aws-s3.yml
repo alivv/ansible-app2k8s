@@ -1,0 +1,37 @@
+---
+#aws s3
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: s3-pvc-log
+  namespace: {{ namespace }}
+spec:
+  storageClassName: s3log
+  persistentVolumeReclaimPolicy: Retain
+  capacity:
+    storage: 5000Gi
+  accessModes:
+    - ReadWriteMany
+  mountOptions:
+    - allow-delete
+    - region ap-southeast-1
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: s3-csi-driver-volume
+    volumeAttributes:
+      bucketName: s3-bucketName
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: s3-pvc-log
+  namespace: {{ namespace }}
+spec:
+  storageClassName: s3log
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5000Gi
+  volumeName: s3-pvc-log
