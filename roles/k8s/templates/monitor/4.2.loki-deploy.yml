@@ -73,21 +73,13 @@ spec:
       labels:
         app: loki
     spec:
-{% if docker_registry_key|default('') != '' %}
-      # imagePullSecrets:
-      # - name: "{{docker_registry_key}}"
-{% endif %}
       serviceAccountName: loki
       securityContext:
-          # fsGroup: 10001
-          # runAsGroup: 10001
-          # runAsNonRoot: true
-          # runAsUser: 10001
           runAsUser: 0
       containers:
         - name: loki
-          # image: grafana/loki:2.6.1
-          image: registry.aliyuncs.com/elvin/loki:2.6.1
+          # image: grafana/loki:3.2.1
+          image: egistry.aliyuncs.com/elvin/loki:3.2.1
           imagePullPolicy: IfNotPresent
           args:
             - -config.file=/etc/loki/loki.yaml
@@ -121,9 +113,13 @@ spec:
             periodSeconds: 10
             successThreshold: 1
             failureThreshold: 3
-          # securityContext:
-          #   readOnlyRootFilesystem: true
-      # terminationGracePeriodSeconds: 30
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 4096Mi
+            requests:
+              cpu: 200m
+              memory: 1024Mi
       volumes:
         - name: config
           configMap:
