@@ -27,7 +27,7 @@ data:
 
     - job_name: kubernetes-pods-app
       pipeline_stages:
-        - docker: {}
+        - cri: {}
         - labelallow:
             - app
             - pod
@@ -35,10 +35,13 @@ data:
             - container
             - namespace
             - loki_job
+        - drop:
+            expression: ".*kube-probe.*|.*controller.go.*|.*Skipping metric.*"
         - static_labels:
             loki_job: 'kubernetes-pods-app'
         - multiline:
-            firstline: '^\w'
+            #firstline: '^\w'
+            firstline: '^[a-zA-Z0-9].*'
             max_lines: 128
             max_wait_time: 3s
         - replace:
@@ -47,6 +50,15 @@ data:
       kubernetes_sd_configs:
       - role: pod
       relabel_configs:
+      #namespaces排除
+      - action: drop
+        source_labels: [__meta_kubernetes_namespace]
+        regex: 'monitor|velero|custom-metrics|ingress-nginx|kube-node-lease'
+      # 排除ingress
+      - action: drop
+        source_labels:
+        - __meta_kubernetes_pod_name
+        regex: '^ingress-ngin.*|^nginx-ingres.*'
       - action: drop
         regex: .+
         source_labels:
@@ -90,30 +102,32 @@ data:
         target_label: __path__
 
 
-    - job_name: kubernetes-pods-direct-controllers
+    - job_name: ingress-nginx
       pipeline_stages:
-        - docker: {}
+        - cri: {}
         - static_labels:
-            loki_job: 'kubernetes-pods-direct-controllers'
+            loki_job: 'ingress-nginx'
         - labeldrop:
             - 'pod_template_generation'
             - 'controller_revision_hash'
             - 'app_kubernetes_io_instance'
             - 'app_kubernetes_io_component'
             - 'filename'
+            - 'detected_level'
+            - 'pod_template_hash'
+            - 'app_kubernetes_io_version'
+            - 'app_kubernetes_io_part_of'
+            - 'app_kubernetes_io_name'
+        - drop:
+            expression: ".*healthcheck.*|.*controller.go.*|.*00] TCP .*"
       kubernetes_sd_configs:
       - role: pod
       relabel_configs:
-      - action: drop
-        regex: .+
-        separator: ''
+      #ingress筛选
+      - action: keep
         source_labels:
-        - __meta_kubernetes_pod_label_name
-        - __meta_kubernetes_pod_label_app
-      # - action: drop
-      #   regex: '[0-9a-z-.]+-[0-9a-f]{8,10}'
-      #   source_labels:
-      #   - __meta_kubernetes_pod_controller_name
+        - __meta_kubernetes_pod_name
+        regex: '^ingress-ngin.*|^nginx-ingres.*'
       - source_labels:
         - __meta_kubernetes_pod_controller_name
         target_label: __service__
@@ -151,6 +165,4 @@ data:
         - __meta_kubernetes_pod_uid
         - __meta_kubernetes_pod_container_name
         target_label: __path__
-
-
 

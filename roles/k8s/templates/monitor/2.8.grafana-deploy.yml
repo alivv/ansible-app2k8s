@@ -1,5 +1,33 @@
 #grafana-deploy.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  namespace: {{monitor_namespace}}
+data:
+  config.yml: |-
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      orgId: 1
+      url: http://prometheus:9090
+      basicAuth: false
+      isDefault: true
+      version: 1
+      editable: false
 
+    - name: Loki
+      type: loki
+      access: proxy
+      orgId: 1
+      url: http://loki:3100
+      basicAuth: false
+      isDefault: false
+      version: 1
+      editable: false
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,14 +45,10 @@ spec:
       labels:
         app: grafana
     spec:
-{% if docker_registry_key|default('') != '' %}
-      # imagePullSecrets:
-      # - name: "{{docker_registry_key}}"
-{% endif %}
       containers:
       - name: grafana
-        # image: grafana/grafana:7
-        image: registry.aliyuncs.com/elvin/grafana:7.5.10
+        # image: grafana/grafana:8.5.27
+        image: registry.aliyuncs.com/elvin/grafana:8.5.27
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
@@ -64,12 +88,17 @@ spec:
         - mountPath: /var/lib/grafana
           subPath: grafana
           name: storage
+        - mountPath: /etc/grafana/provisioning/datasources
+          name: grafana-config
       securityContext:
         # fsGroup: 472
         # runAsUser: 472
         fsGroup: 0
         runAsUser: 0
       volumes:
+      - name: grafana-config
+        configMap:
+          name: grafana-config
       - name: storage
         persistentVolumeClaim:
           claimName: {{ k8s_monitor_pvc.name }}
@@ -96,8 +125,11 @@ metadata:
   labels:
     app: grafana
 spec:
-  type: NodePort
   ports:
     - port: 3000
+{% if env == 'dev' %}
+      nodePort: 30030
+  type: NodePort
+{% endif %}
   selector:
     app: grafana

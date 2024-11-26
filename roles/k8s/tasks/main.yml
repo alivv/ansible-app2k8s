@@ -6,8 +6,16 @@
       - "Need to add parameter list "
       - "eg: -e initlist= -e applist="
       - "ansible-playbook k8s.yml -D -i env/dev -t init-yml -e initlist=1.1.namespace.yml"
-  when: applist == ''
+  when: applist == '' and initlist == ''
   tags: never,yml,dockerfile,build,rmi,config,deploy,redeploy,reconfig,init
+
+- name: "get k8s nodes for test"
+  shell: |
+    . /etc/profile
+    kubectl get nodes
+  delegate_to: "{{ kubectl_node }}"
+  changed_when: false
+  tags: never,node,test
 
 - name: base image list
   debug:

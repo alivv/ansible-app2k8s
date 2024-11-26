@@ -78,8 +78,8 @@ spec:
           runAsUser: 0
       containers:
         - name: loki
-          # image: grafana/loki:3.2.1
-          image: egistry.aliyuncs.com/elvin/loki:3.2.1
+          # image: grafana/loki:3.3.0
+          image: egistry.aliyuncs.com/elvin/loki:3.3.0
           imagePullPolicy: IfNotPresent
           args:
             - -config.file=/etc/loki/loki.yaml

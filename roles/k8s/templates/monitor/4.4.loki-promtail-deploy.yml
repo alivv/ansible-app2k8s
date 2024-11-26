@@ -66,8 +66,8 @@ spec:
       serviceAccountName: loki-promtail
       containers:
         - name: promtail
-          # image: grafana/promtail:3.2.1
-          image: registry.aliyuncs.com/elvin/promtail:3.2.1
+          # image: grafana/promtail:3.3.0
+          image: registry.aliyuncs.com/elvin/promtail:3.3.0
           imagePullPolicy: IfNotPresent
           args: 
           - -config.file=/etc/promtail/promtail.yaml
