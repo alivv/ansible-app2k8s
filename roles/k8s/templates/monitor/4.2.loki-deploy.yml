@@ -86,6 +86,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /etc/loki
+            - name: rule
+              mountPath: /etc/loki-rules
             - name: data
               subPath: loki
               mountPath: /data
@@ -125,6 +127,9 @@ spec:
           configMap:
             defaultMode: 420
             name: loki
+        - name: rule
+          configMap:
+            name: loki-rule
         - name: data
           persistentVolumeClaim:
             claimName: {{ k8s_monitor_pvc.name }}

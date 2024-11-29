@@ -120,6 +120,19 @@ data:
             - 'app_kubernetes_io_name'
         - drop:
             expression: ".*healthcheck.*|.*controller.go.*|.*00] TCP .*"
+        - json:
+            expressions:
+              host: host
+              status: status
+              ip: remote_addr
+              request_uri: request_uri
+              proxy_name: proxy_upstream_name
+        - labels:
+            host:
+            status:
+            ip:
+            request_uri:
+            proxy_name:
       kubernetes_sd_configs:
       - role: pod
       relabel_configs:
@@ -131,9 +144,6 @@ data:
       - source_labels:
         - __meta_kubernetes_pod_controller_name
         target_label: __service__
-      - source_labels:
-        - __meta_kubernetes_pod_node_name
-        target_label: __host__
       - action: drop
         regex: ''
         source_labels:
@@ -145,7 +155,11 @@ data:
         separator: /
         source_labels:
         - __meta_kubernetes_namespace
-        - __service__
+{% if env == 'prod-aliyun' %}
+        - __meta_kubernetes_pod_label_app
+{% else %}
+        - __meta_kubernetes_pod_label_app_kubernetes_io_name
+{% endif %}
         target_label: job
       - action: replace
         source_labels:
@@ -155,10 +169,6 @@ data:
         source_labels:
         - __meta_kubernetes_pod_name
         target_label: pod
-      - action: replace
-        source_labels:
-        - __meta_kubernetes_pod_container_name
-        target_label: container
       - replacement: /var/log/pods/*$1/*.log
         separator: /
         source_labels:
