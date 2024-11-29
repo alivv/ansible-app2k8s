@@ -1,0 +1,221 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ mysql.name }}
+  namespace: {{ namespace }}
+  labels:
+    app: {{ mysql.name }}
+    env: {{ env }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ mysql.name }}
+    env: {{ env }}
+  ports:
+  - name: mysql
+    port: 3306
+    targetPort: 3306
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ mysql.name }}
+  namespace: {{ namespace }}
+spec:
+  serviceName: {{ mysql.name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ mysql.name }}
+      env: {{ env }}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9104"
+      labels:
+        app.kubernetes.io/name: mysql
+        app: {{ mysql.name }}
+        env: {{ env }}
+    spec:
+      containers:
+      - name: {{ mysql.name }}
+        image: registry.aliyuncs.com/elvin/mysql:8.0-debian
+        imagePullPolicy: IfNotPresent
+        # args:
+        # - --character-set-server=utf8mb4
+        # - --collation-server=utf8mb4_unicode_ci
+        env:
+        - name: TZ
+          value: Asia/Shanghai
+        - name: MYSQL_ROOT_PASSWORD
+          value: {{ mysql.root }}
+        - name: MYSQL_DATABASE
+          value: {{ mysql.db }}
+        - name: MYSQL_USER
+          value: {{ mysql.user }}
+        - name: MYSQL_PASSWORD
+          value: {{ mysql.pwd }}
+        volumeMounts:
+        - mountPath: "/var/lib/mysql"
+          subPath: {{ mysql.name }}
+          name: mysql-data
+        - mountPath: "/etc/localtime"
+          name: localtime
+          readOnly: true
+        ports:
+        - containerPort: 3306
+          name: mysql
+          protocol: TCP
+        resources:
+          requests:
+            cpu: {{ mysql.requests_cpu }}
+            memory: {{ mysql.requests_ram }}
+          limits:
+            cpu: {{ mysql.limits_cpu }}
+            memory: {{ mysql.limits_ram }}
+        startupProbe:
+          periodSeconds: 2
+          failureThreshold: 100
+          tcpSocket:
+            port: 3306
+        livenessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 20
+          timeoutSeconds: 5
+
+      - name: mysql-exporter
+        # image: prom/mysqld-exporter
+        image: registry.aliyuncs.com/elvin/mysqld-exporter:v0.16.0
+        env:
+        - name: MYSQLD_EXPORTER_PASSWORD
+          value: "{{ mysql.root }}"
+        command:
+        - mysqld_exporter
+        - --mysqld.address=localhost:3306
+        # - --mysqld.username=exporter
+        - --mysqld.username=root
+        resources:
+          requests:
+            cpu: 100m
+            memory: 16Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        ports:
+        - containerPort: 9104
+      volumes:
+      - name: localtime
+        hostPath:
+          path: /etc/localtime
+      - name: mysql-data
+        persistentVolumeClaim:
+          claimName: {{ k8s_data_pvc.name }}
+
+# CREATE USER 'exporter'@'localhost' IDENTIFIED BY 'exporter' WITH MAX_USER_CONNECTIONS 3;
+# GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'exporter'@'localhost';
+#https://github.com/prometheus/mysqld_exporter
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ mysql.name }}-web
+  namespace: {{ namespace }}
+spec:
+  selector:
+    app: {{ mysql.name }}-web
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ mysql.name }}-web
+  namespace: {{ namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ mysql.name }}-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: phppgadmin
+        app: {{ mysql.name }}-web
+    spec:
+      # securityContext:
+      #   runAsUser: 0
+      containers:
+      - name: {{ mysql.name }}-web
+        #image: bitnami/phpmyadmin
+        image: registry.aliyuncs.com/elvin/phpmyadmin
+        #imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+        env:
+        - name: DATABASE_HOST
+          value: {{ mysql.name }}
+        - name: DATABASE_USER
+          value: root
+        - name: DATABASE_PASSWORD
+          value: {{ mysql.root }}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1024Mi
+
+---
+#ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ mysql.name }}-web
+  namespace: {{ namespace }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-connections: '100'
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    # nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    # cert-manager.io/cluster-issuer: "letsencrypt"
+spec:
+  tls:
+  - hosts:
+      - {{ mysql.web_url }}
+    secretName: https-crt
+  rules:
+  - host: {{ mysql.web_url }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ mysql.name }}-web
+            port: 
+              number: 8080
+
+#doc
+#https://hub.docker.com/r/bitnami/phpmyadmin

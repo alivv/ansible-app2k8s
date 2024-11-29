@@ -196,6 +196,18 @@ minio:
   user: minio
   pwd: testminio
 
+mysql:
+  name: "{{ env }}-mysql"
+  tag: 8.0-debian
+  root: add_root_pwd
+  db: app
+  user: app
+  pwd: app_pwd
+  web_url: dbweb-dev.elvin.vip
+  requests_cpu: 200m
+  requests_ram: 512Mi
+  limits_cpu: 1000m
+  limits_ram: 2048Mi
 
 #########################################
 #db
