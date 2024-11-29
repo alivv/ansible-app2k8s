@@ -331,7 +331,7 @@ metadata:
   namespace: ingress-nginx
 data:
    log-format-escape-json: "true"
-   log-format-upstream: '{"remote_addr": "$remote_addr", "time_local": "$time_local", "request_method": "$request_method", "request_uri": "$request_uri", "request_protocol": "$server_protocol", "request": "$request", "status": $status, "body_bytes_sent": $body_bytes_sent, "http_referer": "$http_referer", "http_user_agent": "$http_user_agent", "request_length": $request_length, "request_time": $request_time, "proxy_upstream_name": "$proxy_upstream_name", "upstream_addr": "$upstream_addr", "upstream_response_length": $upstream_response_length, "upstream_response_time": $upstream_response_time, "upstream_status": $upstream_status, "req_id": "$req_id", "host": "$host"}'
+   log-format-upstream: '{"remote_addr": "$remote_addr", "time_local": "$time_local", "request_method": "$request_method", "request_uri": "$request_uri", "request_protocol": "$server_protocol", "request": "$request", "status": $status, "body_bytes_sent": $body_bytes_sent, "http_referer": "$http_referer", "http_user_agent": "$http_user_agent", "request_length": $request_length, "request_time": $request_time, "proxy_upstream_name": "$proxy_upstream_name", "upstream_addr": "$upstream_addr", "upstream_response_length": "$upstream_response_length", "upstream_response_time": "$upstream_response_time", "upstream_status": "$upstream_status", "req_id": "$req_id", "host": "$host"}'
    proxy-body-size: 20m
    proxy-connect-timeout: "10"
    max-worker-connections: "65536"
