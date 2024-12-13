@@ -240,7 +240,7 @@ data:
           description: "Node down"
 
       - alert: Memory usage too high
-        expr: round(100- node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes*100) > 90
+        expr: round(100- node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes*100) > 80
         for: 2m
         labels:
           severity: warning
@@ -258,7 +258,7 @@ data:
           description: "CPU usage {{ $value }}%"
 
       - alert: "Disk usage too high"
-        expr: round(100-100*(node_filesystem_avail_bytes{fstype=~"ext4|xfs"} / node_filesystem_size_bytes{fstype=~"ext4|xfs"})) > 90
+        expr: round(100-100*(node_filesystem_avail_bytes{fstype=~"ext4|xfs"} / node_filesystem_size_bytes{fstype=~"ext4|xfs"})) > 80
         for: 30s
         labels:
           severity: warning
