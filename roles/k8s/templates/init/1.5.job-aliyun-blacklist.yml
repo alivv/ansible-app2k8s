@@ -1,0 +1,55 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: job-aliyun-blacklist
+  namespace: kube-public
+  annotations:
+    description: "check and add ip to aliyun-lb blacklist"
+spec:
+  schedule: "*/10 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: job-aliyun-blacklist
+            image: registry.aliyuncs.com/elvin/aliyun:cli
+            imagePullPolicy: Always
+            volumeMounts:
+            - mountPath: "/etc/localtime"
+              name: localtime
+              readOnly: true
+            env:
+            - name: ACL_ID
+              value: 'acl-xxx'
+            - name: ALICLOUD_REGION_ID
+              value: cn-hongkong
+            - name: ALICLOUD_ACCESS_KEY_ID
+              value: ali_access_id
+            - name: ALICLOUD_ACCESS_KEY_SECRET
+              value: ali_access_key
+            command:
+            - bash
+            - -c
+            - |
+              date +"%F %T %Z %:z"
+              curl -G -s "http://loki.monitor.svc:3100/loki/api/v1/query_range" \
+                --data-urlencode 'query=sum by (ip) (count_over_time({job=~".*ingress-nginx"} [2m])) > 2000' \
+                --data-urlencode "start=$(date -d '15 minutes ago' +%s)" \
+                --data-urlencode "end=$(date +%s)" \
+                --data-urlencode 'step=1m' | jq -r '.data.result[].metric.ip' >ip.txt
+              if [ $(cat ip.txt |wc -l) -ge 1 ]; then
+                echo "#ip-list:"
+                cat -n ip.txt
+                for ip in $(cat ip.txt); do
+                  aliyun slb AddAccessControlListEntry --RegionId $ALICLOUD_REGION_ID --AclId $ACL_ID --AclEntrys "[{\"entry\":\"$ip/32\",\"comment\":\"$(date +'%F %T')\"}]"
+                done
+              fi
+              date +"%F %T %Z %:z"
+          volumes:
+          - name: localtime
+            hostPath:
+              path: /etc/localtime
+
