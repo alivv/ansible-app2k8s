@@ -1,0 +1,25 @@
+FROM python:3.10.16-alpine
+#python:lark-robot
+
+# {{ansible_date_time.date}}
+# COPY dockerfile.{{ item }} /etc/dockerfile/
+COPY dockerfile.python_lark-robot-v1 /etc/dockerfile/
+
+RUN date ; \
+    #timezone
+    sed -i 's/dl.*org/mirrors.aliyun.com/g' /etc/apk/repositories ; \
+    apk add --no-cache tzdata ; \
+    ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime ; \
+    #sdk
+    apk add --no-cache python3-pip ; \
+    mkdir -p ~/.pip ; \
+    echo -e "[global]\nindex-url = http://mirrors.aliyun.com/pypi/simple\n[install]\ntrusted-host=mirrors.aliyun.com" >~/.pip/pip.conf ; \
+    pip3 install flask lark_oapi datetime 
+
+
+#dockerfile.{{ item }}
+# docker build --no-cache -t {{ repository_local_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ item }} .
+# docker push {{ repository_local_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}
+
+# docker build --no-cache -t python:lark-robot -f dockerfile.python_lark-robot-v1 .
+# registry.aliyuncs.com/elvin/python:lark-robot
