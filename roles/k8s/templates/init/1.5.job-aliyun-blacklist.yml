@@ -46,6 +46,14 @@ spec:
                 for ip in $(cat ip.txt); do
                   aliyun slb AddAccessControlListEntry --RegionId $ALICLOUD_REGION_ID --AclId $ACL_ID --AclEntrys "[{\"entry\":\"$ip/32\",\"comment\":\"$(date +'%F %T')\"}]"
                 done
+                #dingtalk
+                export ddtxt="notice from ip-check \nadd ip-blacklist: \n$(cat ip.txt)"
+                export ddtoken={{ notice_dingtalk_token }}
+                curl -ks -m 5 http://files.elvin.vip/shell/ddmsg.url.txt.sh |bash
+                #lark
+                export txtmsg="notice from ip-check \nadd ip-blacklist: \n$(cat ip.txt)"
+                export larktoken={{ notice_lark_token }}
+                curl -ks -m 5 http://files.elvin.vip/shell/lkmsg.txt.sh |bash
               fi
               date +"%F %T %Z %:z"
           volumes:
