@@ -44,7 +44,7 @@ spec:
             - -c
             - |
               export ddtoken={{notice_dingtalk_toke}}
-              curl -kso pod.sh https://files.otms.cn/shell/k8s.restart.pod.sh
+              curl -kso pod.sh https://gitee.com/alivv/elvin-demo/raw/master/shell/k8s.restart.pod.sh
               export k8sRun=true
               export N={{namespace}}
               bash pod.sh
