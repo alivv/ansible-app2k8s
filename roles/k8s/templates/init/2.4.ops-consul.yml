@@ -1,0 +1,182 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: consul-config
+  namespace: kube-public
+data:
+  config.json: |
+    {
+      "datacenter": "{{ datacenter|default('k8s') }}",
+      "acl_datacenter": "{{ datacenter|default('k8s') }}",
+      "data_dir": "/data/consul",
+      "bind_addr": "0.0.0.0",
+      "client_addr": "0.0.0.0",
+      "retry_interval": "5s",
+      "retry_join": ["consul-0.consul.kube-public","consul-1.consul.kube-public","consul-2.consul.kube-public"],
+{% if vault_consul_encrypt_key is defined %}
+      "encrypt": "{{ vault_consul_encrypt_key }}",
+{% endif %}
+      "disable_host_node_id": true,
+      "enable_script_checks": true,
+      "disable_update_check": true,
+      "leave_on_terminate": true,
+      "log_level": "INFO",
+      "server": true,
+      "bootstrap_expect": 3,
+      "ports": {
+        "dns": 8600
+      },
+      "addresses": {
+        "dns": "0.0.0.0"
+      },
+{% if vault_consul_acl_master_token is defined %}
+      "acl_master_token": "{{ vault_consul_acl_master_token }}",
+      "acl_agent_token": "{{ vault_consul_acl_master_token }}",
+      "acl_token": "{{ vault_consul_acl_master_token }}",
+{% endif %}
+      "acl_default_policy": "deny",
+      "acl_down_policy": "deny",
+      "ui": true
+    }
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: consul
+  namespace: kube-public
+spec:
+  selector:
+    app: consul
+  ports:
+  - name: consul
+    port: 8500
+    targetPort: 8500
+    protocol: TCP
+  - name: consul-8300
+    port: 8300
+    targetPort: 8300
+    protocol: TCP
+  - name: consul-8301-tcp
+    port: 8301
+    targetPort: 8301
+    protocol: TCP
+  - name: consul-8301-udp
+    port: 8301
+    targetPort: 8301
+    protocol: UDP
+  - name: consul-8302-tcp
+    port: 8302
+    targetPort: 8302
+    protocol: TCP
+  - name: consul-8302-udp
+    port: 8302
+    targetPort: 8302
+    protocol: UDP
+  - name: consul-dns-tcp
+    port: 8600
+    targetPort: 8600
+    protocol: TCP
+  - name: consul-dns-udp
+    port: 8600
+    targetPort: 8600
+    protocol: UDP
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: consul
+  namespace: kube-public
+spec:
+  replicas: 3
+  serviceName: consul
+  selector:
+    matchLabels:
+      app: consul
+  revisionHistoryLimit: 3
+  template:
+    metadata:
+      labels:
+        app: consul
+    spec:
+      containers:
+      - name: consul
+        image: registry.aliyuncs.com/elvin/consul:v1.0
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -c
+        - |
+          mkdir -p /etc/consul /data/$HOSTNAME
+          cat /opt/consul/config.json >/etc/consul/config.json
+          sed -i "s|/data/consul|/data/$HOSTNAME|g" /etc/consul/config.json
+          exec consul agent -config-dir=/etc/consul
+        ports:
+        - name: dns
+          containerPort: 8600
+          protocol: UDP
+        - name: dns-tcp
+          containerPort: 8600
+          protocol: TCP
+        - containerPort: 8500
+        - containerPort: 8300
+        - containerPort: 8301
+        - containerPort: 8302
+        env:
+        - name: pod_ip
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 1024Mi
+        readinessProbe:
+          tcpSocket:
+            port: 8500
+        livenessProbe:
+          tcpSocket:
+            port: 8500
+        volumeMounts:
+        - name: consul-config
+          mountPath: "/opt/consul"
+        - name: data
+          mountPath: "/data"
+          subPath: ops-consul
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: kube-public
+      - name: consul-config
+        configMap:
+          name: consul-config
+
+---
+#ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: consul
+  namespace: kube-public
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-connections: '100'
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+spec:
+  rules:
+  - host: consul.elvin.vip
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: consul
+            port: 
+              number: 8500
