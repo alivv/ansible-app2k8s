@@ -33,7 +33,7 @@
 
 The principle is simple: use `ansible` to manage templates and execute deployments using `kubectl`.
 ansible-templates -> deploy.yml -> kubectl -> Kubernetes
-![](https://imgs.elvin.vip/2023/app2k8s-1.png)
+![](http://imgs.elvin.vip/2023/app2k8s-1.png)
 
 The execution process is marked using `tags`, such as `-t deploy` for the `deploy` section.
 Based on the execution process, it can be roughly divided into the following modules:
@@ -65,7 +65,7 @@ and the configuration for the app-v1 service in the dev environment is group_var
 For the prod environment, use the corresponding configuration path: group_vars/prod/k8s_apps/app-v1.yml.
 
 **Screenshots**
-![](https://imgs.elvin.vip/2023/k8s_ansible_cli_v1.jpg)
+![](http://imgs.elvin.vip/2023/k8s_ansible_cli_v1.jpg)
 
 
 #### #5  Setting up and Configuring the dev Environment  
@@ -293,7 +293,7 @@ Grafana default username/password: admin / grafana
 Add Loki data source URL: http://loki:3100  
 Add Prometheus database source URL: http://prometheus:9090  
 Grafana templates: roles/k8s/templates/monitor/grafana-template/  
-![](https://imgs.elvin.vip/2023/grafana-datasources.jpg) 
+![](http://imgs.elvin.vip/2023/grafana-datasources.jpg) 
 
 ##### #6.4 Deploying Services to Kubernetes  
 
@@ -316,7 +316,7 @@ ansible-playbook k8s.yml -i env/dev -D -t ingress
 ```
 To view the ingress configuration, 
 open the following URL in a web browser:
-![](https://imgs.elvin.vip/2023/ingess-demo1.jpg)
+![](http://imgs.elvin.vip/2023/ingess-demo1.jpg)
 
 #### #7 Deployment Verification and Cleanup
 
@@ -389,16 +389,16 @@ The log4j2 configuration can be found in the configmap at `roles/k8s/templates/j
 - 8.4.2 Kubernetes Dashboard: `KubePi`
    KubePi is a visual dashboard for Kubernetes that can manage multiple Kubernetes clusters. It is an open-source project from China.
    GitHub: [1Panel-dev/KubePi](https://github.com/1Panel-dev/KubePi)
-   ![KubePi](https://imgs.elvin.vip/2023/k8s_kubepi-1.jpg)
+   ![KubePi](http://imgs.elvin.vip/2023/k8s_kubepi-1.jpg)
 
 - 8.4.3 Kubernetes Dashboard IDE: `Lens`
    Official Website: [Lens](https://k8slens.dev)
-   ![Lens](https://imgs.elvin.vip/2023/k8s_lens-1.jpg)
+   ![Lens](http://imgs.elvin.vip/2023/k8s_lens-1.jpg)
 
 - 8.4.4 Kubernetes User Permission Management: `permission-manager`
    Permission Manager allows you to add and configure user permissions and generate user kubeconfig files.
    GitHub: [sighupio/permission-manager](https://github.com/sighupio/permission-manager)
-   ![Permission Manager](https://imgs.elvin.vip/2023/k8s_permission-manager-1.jpg)
+   ![Permission Manager](http://imgs.elvin.vip/2023/k8s_permission-manager-1.jpg)
 
 ##### #8.5 StatefulSet for Stateful Services
 
@@ -436,7 +436,7 @@ The Prometheus configuration file `prometheus-config.yml` contains the collectio
 **Grafana Dashboards**
 
 Grafana dashboard view for JVM monitoring:  
-![JVM Monitoring](https://imgs.elvin.vip/2023/k8s_grafana_jvm_v1.jpg)
+![JVM Monitoring](http://imgs.elvin.vip/2023/k8s_grafana_jvm_v1.jpg)
 
 ##### #8.7 Container Image Registry
 
@@ -447,7 +447,7 @@ Grafana dashboard view for JVM monitoring:
 - [docker-registry](https://github.com/distribution/distribution) - Container image registry
 - [docker-registry-ui](https://github.com/Joxit/docker-registry-ui) - Web interface for viewing registry images
 
-![docker-registry-ui](https://imgs.elvin.vip/2023/k8s_registry_ui2.jpg)
+![docker-registry-ui](http://imgs.elvin.vip/2023/k8s_registry_ui2.jpg)
 
 ##### #8.8 Image Building
 
@@ -477,7 +477,7 @@ Please address security concerns according to your needs. Here are some consider
 - Automated deployment should be combined with other tools, such as Jenkins.
 
 _Automated Deployment Notification using Jenkins, Ansible, and DingTalk:_  
-![Automated Deployment Notice](https://imgs.elvin.vip/2023/k8s_deploy_notice_v1.jpg)
+![Automated Deployment Notice](http://imgs.elvin.vip/2023/k8s_deploy_notice_v1.jpg)
 
 #### #9 Reference for Common Daily Commands
 

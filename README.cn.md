@@ -32,7 +32,7 @@
 
 原理很简单，使用`ansible`管理模板，调用`kubectl`执行部署  
 ansible-templates -> deploy.yml -> kubectl -> kubenertes
-![](https://imgs.elvin.vip/2023/app2k8s-1.png)
+![](http://imgs.elvin.vip/2023/app2k8s-1.png)
 执行过程使用`tag`标记，如`-t deploy`执行`deploy`部分  
 根据执行过程，大致分为以下步骤模块
 
@@ -63,7 +63,7 @@ ansible-templates -> deploy.yml -> kubectl -> kubenertes
 prod环境使用对应配置路径 group_vars/prod/k8s_apps/app-v1.yml
 
 **运行截图**
-![](https://imgs.elvin.vip/2023/k8s_ansible_cli_v1.jpg)
+![](http://imgs.elvin.vip/2023/k8s_ansible_cli_v1.jpg)
 
 #### #5 dev 环境准备与配置  
 
@@ -285,7 +285,7 @@ grafana默认用户密码 `admin` `grafana`
 添加loki数据源地址 http://loki:3100  
 添加prometheus数据库源地址 http://prometheus:9090    
 grafana模板 roles/k8s/templates/monitor/grafana-template/  
-![](https://imgs.elvin.vip/2023/grafana-datasources.jpg) 
+![](http://imgs.elvin.vip/2023/grafana-datasources.jpg) 
 
 ##### #6.4 部署服务到 k8s
 
@@ -307,7 +307,7 @@ ansible-playbook k8s.yml -i env/dev -D -t build,deploy -e applist=all
 ansible-playbook k8s.yml -i env/dev -D -t ingress
 ```
 查看ingress配置,浏览器打开网址查看如下:
-![](https://imgs.elvin.vip/2023/ingess-demo1.jpg)
+![](http://imgs.elvin.vip/2023/ingess-demo1.jpg)
 
 #### #7 部署验证与清理
 
@@ -383,15 +383,15 @@ log4j2 配置在 configmap `roles/k8s/templates/jetty/configmap/`
 - 8.4.2 k8s 面板 `KubePi`
   Kubernetes 可视化面板,可管多个 k8s 集群,国产开源
    GitHub https://github.com/1Panel-dev/KubePi  
-  ![](https://imgs.elvin.vip/2023/k8s_kubepi-1.jpg)
+  ![](http://imgs.elvin.vip/2023/k8s_kubepi-1.jpg)
 
 - 8.4.3 k8s面板IDE工具推荐Lens 
   官网 https://k8slens.dev
-  ![](https://imgs.elvin.vip/2023/k8s_lens-1.jpg)
+  ![](http://imgs.elvin.vip/2023/k8s_lens-1.jpg)
 - 8.4.4 k8s 用户权限管理 `permission-manager`  
    添加配置用户权限,生成用户 kubeconfig 文件  
    GitHub https://github.com/sighupio/permission-manager  
-  ![](https://imgs.elvin.vip/2023/k8s_permission-manager-1.jpg)
+  ![](http://imgs.elvin.vip/2023/k8s_permission-manager-1.jpg)
 
 ##### #8.5 有状态服务 StatefulSet
 
@@ -431,7 +431,7 @@ prometheus 采集和警报规则都在 prometheus-config.yml 文件
 **grafana 模板**
 
 JVM 监控 grafana 视图:  
-![](https://imgs.elvin.vip/2023/k8s_grafana_jvm_v1.jpg)
+![](http://imgs.elvin.vip/2023/k8s_grafana_jvm_v1.jpg)
 
 ##### #8.7 容器镜像仓库
 
@@ -442,7 +442,7 @@ JVM 监控 grafana 视图:
 - [docker-registry 容器镜像仓库](https://github.com/distribution/distribution)
 - [docker-registry-ui 镜像查看 web 界面](https://github.com/Joxit/docker-registry-ui)
 
-![](https://imgs.elvin.vip/2023/k8s_registry_ui2.jpg)
+![](http://imgs.elvin.vip/2023/k8s_registry_ui2.jpg)
 
 ##### #8.8 镜像构建
 
@@ -472,7 +472,7 @@ JVM 监控 grafana 视图:
 - 做自动化部署还需结合其它工具，比如使用 Jenkins
 
 _使用 Jenkins+ansible+钉钉通知，自动化部署通知:_  
-![](https://imgs.elvin.vip/2023/k8s_deploy_notice_v1.jpg)
+![](http://imgs.elvin.vip/2023/k8s_deploy_notice_v1.jpg)
 
 #### #9 日常使用命令参考
 
