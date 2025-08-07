@@ -1,0 +1,177 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea
+  namespace: kube-public
+  labels:
+    app: gitea
+spec:
+  # clusterIP: None
+  selector:
+    app: gitea
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+{% if env == "prod" %}
+  - name: ssh
+    port: 2222
+    targetPort: 2222
+{% endif %}
+
+{% if env == "dev" %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea-ssh
+  namespace: kube-public
+  labels:
+    app: gitea
+spec:
+  type: NodePort
+  selector:
+    app: gitea
+  ports:
+  - name: ssh
+    port: 2222
+    targetPort: 2222
+    nodePort: 2222
+{% endif %}
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: gitea
+  namespace: kube-public
+spec:
+  replicas: 1
+  serviceName: gitea
+  selector:
+    matchLabels:
+      app: gitea
+  template:
+    metadata:
+      labels:
+        app: gitea
+    spec:
+      containers:
+      - name: gitea
+        image: registry.aliyuncs.com/elvin/gitea:1.23.8
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        - containerPort: 2222
+        env:
+        - name: APP_NAME
+          value: '私有gitea服务'
+        - name: SSH_PORT
+          value: '2222'
+        - name: HTTP_PORT
+          value: '3000'
+        - name: DISABLE_REGISTRATION
+          value: 'true'
+        - name: LOGIN_REMEMBER_DAYS
+          value: '2'
+        - name: DEFAULT_USER_VISIBILITY
+          value: private
+        - name: DEFAULT_ORG_VISIBILITY
+          value: private
+        - name: DISABLE_REGULAR_ORG_CREATION
+          value: 'true'
+        command:
+        - bash
+        - -c
+        - |
+          date +"%F %T"
+          echo "alias ll='ls -hl --color=auto'" >>~/.bashrc
+          echo -e "\n[ssh.minimum_key_sizes]\nRSA = 2047\n" >> /etc/templates/app.ini
+          sed -i '/LOGIN_REMEMBER_DAYS/d'  /data/gitea/conf/app.ini 
+          sed -i '/\[security\]/a LOGIN_REMEMBER_DAYS = 2' /data/gitea/conf/app.ini 
+          sed -i '/DEFAULT_BRANCH/d'  /data/gitea/conf/app.ini 
+          sed -i '/\[repository\]/a DEFAULT_BRANCH = master' /data/gitea/conf/app.ini 
+          sed -i '/DISABLE_HTTP_GIT/d'  /data/gitea/conf/app.ini 
+          sed -i '/\[repository\]/a DISABLE_HTTP_GIT = true' /data/gitea/conf/app.ini 
+          exec /usr/bin/entrypoint
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 1024Mi
+        startupProbe:
+          httpGet:
+            path: /api/healthz
+            port: 3000
+          initialDelaySeconds: 20
+          periodSeconds: 3
+          failureThreshold: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /api/healthz
+            port: 3000
+          initialDelaySeconds: 20
+          timeoutSeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /api/healthz
+            port: 3000
+          initialDelaySeconds: 20
+          timeoutSeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        volumeMounts:
+        - name: data
+          mountPath: /data
+          subPath: gitea
+        - name: localtime
+          mountPath: /etc/localtime
+          readOnly: true
+      volumes:
+      - name: localtime
+        hostPath:
+          path: /etc/localtime
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ k8s_public_pvc.name }}
+
+---
+#ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gitea
+  namespace: kube-public
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-connections: '100'
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "200m"
+    # cert-manager.io/cluster-issuer: "letsencrypt"
+spec:
+  tls:
+  - hosts:
+    - {{gitea_url}}
+    secretName: https-crt
+  rules:
+  - host: {{gitea_url}}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gitea
+            port:
+              number: 3000
+
+# #config
+# https://docs.gitea.com/zh-cn/administration/config-cheat-sheet
