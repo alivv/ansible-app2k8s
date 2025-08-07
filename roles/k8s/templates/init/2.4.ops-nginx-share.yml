@@ -1,0 +1,149 @@
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: kube-public
+data:
+  nginx.conf: |-
+
+    #ngix配置
+    user   root;
+    worker_processes   2;
+    events {
+      multi_accept   on;
+      use   epoll;
+      worker_connections  1024;
+    }
+    http {
+    sendfile   on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    types_hash_max_size 1024;
+    #隐藏版本显示
+    server_tokens   off;
+    charset UTF-8;
+    include /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    index index.html;
+    #real_ip
+    real_ip_header    X-Forwarded-For;
+    real_ip_recursive on;
+    set_real_ip_from  0.0.0.0/0;
+    log_format  main  '$remote_addr [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+    access_log /var/log/nginx/access.log   main;
+
+    server {
+    listen 80 default_server;
+    root /data/www;
+    server_name _;
+    location / {
+        autoindex on;
+        autoindex_format html;
+        autoindex_exact_size off; 
+        autoindex_localtime on;
+        charset utf-8,gbk;
+        }
+    }
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ops-nginx-share
+  namespace: kube-public
+spec:
+  selector:
+    matchLabels:
+      name: ops-nginx-share
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: ops-nginx-share
+    spec:
+      containers:
+      - name: ops-nginx-share
+        image: registry.aliyuncs.com/elvin/nginx:1.21-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        readinessProbe:
+          tcpSocket:
+            port: 80
+        livenessProbe:
+          tcpSocket:
+            port: 80
+        startupProbe:
+          tcpSocket:
+            port: 80
+        command:
+        - sh
+        - -c
+        - |
+          echo "alias ll='ls -hl --color=auto'" >>/etc/profile
+          sed -i 's/txt;/txt yml yaml;/g' /etc/nginx/mime.types;
+          cat /opt/nginx/nginx.conf >/etc/nginx/nginx.conf
+          exec nginx -g "daemon off;"
+        volumeMounts:
+        - name: data
+          mountPath: /data/www
+          subPath: jenkins/nodes/k8s-share
+        - name: config
+          mountPath: "/opt/nginx"
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ k8s_public_pvc.name }}
+      - name: config
+        configMap:
+          name: nginx-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ops-nginx-share
+  namespace: kube-public
+spec:
+  selector:
+    name: ops-nginx-share
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ops-nginx-share
+  namespace: kube-public
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-connections: '50'
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+spec:
+  rules:
+  - host: {{nginx_share_url}}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ops-nginx-share
+            port: 
+              number: 80
