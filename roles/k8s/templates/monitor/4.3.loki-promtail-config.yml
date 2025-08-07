@@ -36,7 +36,7 @@ data:
             - namespace
             - loki_job
         - drop:
-            expression: ".*kube-probe.*|.*controller.go.*|.*Skipping metric.*"
+            expression: ".*kube-probe.*|.*kube-probe.*|.*controller.go.*|.*Skipping metric.*"
         - static_labels:
             loki_job: 'kubernetes-pods-app'
         - multiline:
@@ -119,7 +119,7 @@ data:
             - 'app_kubernetes_io_part_of'
             - 'app_kubernetes_io_name'
         - drop:
-            expression: ".*healthcheck.*|.*controller.go.*|.*00] TCP .*"
+            expression: ".*healthcheck.*|.*kube-probe.*|.*controller.go.*|.*00] TCP .*"
         - json:
             expressions:
               host: host

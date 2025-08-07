@@ -115,7 +115,9 @@ java_log_opts=" -XX:+UnlockDiagnosticVMOptions
     -Xlog:safepoint=debug:file=/var/log/${app}/gc.safepoint.${HOSTNAME}.log:time,uptime,level,tags:filecount=10,filesize=10M
     --add-opens java.base/java.lang=ALL-UNNAMED
 {% endif %}
-    ${jetty_level}"
+    ${jetty_level}
+    -Djetty.httpConfig.sendServerVersion=false
+    -Djetty.httpConfig.sendXPoweredBy=false"
 
 java_agent_opts=" -javaagent:/opt/java_agent/{{java_agent}}={{java_agent_port}}:/opt/java_agent/jmx_exporter.yml"
 
