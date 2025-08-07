@@ -1,4 +1,4 @@
-FROM ubuntu:focal-20221130
+FROM registry.aliyuncs.com/elvin/ubuntu:focal-20250404
 
 # {{ansible_date_time.date}}
 COPY dockerfile.{{ item }} /etc/dockerfile/

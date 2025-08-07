@@ -1,0 +1,22 @@
+FROM {{ local_repository_url }}/{{ base_category }}ansible:2.7.18-focal
+
+# {{ansible_date_time.date}}
+COPY dockerfile.{{ item }} /etc/dockerfile/
+
+RUN set -xe ; \
+    export DEBIAN_FRONTEND=noninteractive ; \
+    apt-get update; \
+    #
+    # Install utility tools
+    apt-get install -y --no-install-recommends git ; \
+    #
+    # Clean
+    apt-get clean  && \
+    find /var/log/ -type f | xargs rm -f && \
+    rm -rf /var/cache/apt/* /var/lib/apt/lists/* /tmp/* 
+
+WORKDIR  /root
+
+#dockerfile.{{ item }}
+# docker build --no-cache -t {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ item }} .
+# docker push {{ local_repository_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}
