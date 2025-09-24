@@ -122,7 +122,6 @@ spec:
 
 # CREATE USER 'exporter'@'localhost' IDENTIFIED BY 'exporter' WITH MAX_USER_CONNECTIONS 3;
 # GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'exporter'@'localhost';
-#https://github.com/prometheus/mysqld_exporter
 
 ---
 apiVersion: v1
@@ -188,6 +187,16 @@ spec:
             memory: 1024Mi
 
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ mysql.name }}-web-auth
+  namespace: {{ namespace }}
+type: Opaque
+data:
+  auth: {{ dbweb_auth }}
+
+---
 #ingress
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -200,6 +209,10 @@ metadata:
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
     # nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
     # cert-manager.io/cluster-issuer: "letsencrypt"
+    #密码认证 Password authentication 
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: {{ mysql.name }}-web-auth
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required - auth'
 spec:
   tls:
   - hosts:
