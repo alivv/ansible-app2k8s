@@ -43,9 +43,10 @@ spec:
             - bash
             - -c
             - |
-              export ddtoken={{notice_dingtalk_toke}}
+              export ddtoken={{notice_dingtalk_token}}
               curl -kso pod.sh https://gitee.com/alivv/elvin-demo/raw/master/shell/k8s.restart.pod.sh
               export k8sRun=true
+              export Limit=80
               export N={{namespace}}
               bash pod.sh
               date +"%F %T"
