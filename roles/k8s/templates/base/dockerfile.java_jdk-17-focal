@@ -1,0 +1,54 @@
+FROM registry.aliyuncs.com/elvin/ubuntu:focal-20250404
+
+# {{ansible_date_time.date}}
+COPY dockerfile.{{ item }} /etc/dockerfile/
+
+ENV JAVA_VERSION=17.0.16
+ENV TIME_ZONE=Asia/Shanghai
+ENV JAVA_HOME=/usr/local/java
+ENV JRE_HOME=$JAVA_HOME/jre
+ENV CLASSPATH=:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar:$JRE_HOME/lib
+ENV PATH=$PATH:$JAVA_HOME/bin:$JRE_HOME/bin
+
+# Default to UTF-8 file.encoding
+ENV LANG=C.UTF-8
+
+RUN set -xe ; \
+    export DEBIAN_FRONTEND=noninteractive ; \
+    #
+    # Use Aliyun source
+    sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/mirrors.aliyun.com/' /etc/apt/sources.list && \
+    apt-get update; \
+    #
+    # Install utility tools
+    apt-get install -y --no-install-recommends net-tools curl jq vim-tiny inetutils-ping less ; \
+    #font
+    apt install fontconfig -y ; \
+    #
+    # Set timezone to Shanghai
+    apt-get install -y tzdata && \
+    ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime ; \
+    echo Asia/Shanghai > /etc/timezone ; \
+    #
+    # Install JDK
+    cd /tmp && \
+    curl -s -m 8 -o jdk-linux-x64.tar.gz http://192.168.3.112:81/binaries/java/jdk-${JAVA_VERSION}_linux-x64_bin.tar.gz ; \
+    mkdir -p $JAVA_HOME ; \
+    tar -xf jdk-linux-x64.tar.gz -C $JAVA_HOME/ --strip-components=1 ; \
+    rm -rf ${JAVA_HOME}/lib/src.zip; \
+    #
+    # Clean
+    apt-get clean  && \
+    find /var/log/ -type f | xargs rm -f && \
+    rm -rf /var/cache/apt/* /var/lib/apt/lists/* /tmp/* ;\
+    #
+    # Basic smoke test
+    javac -version; \
+    java -version
+
+
+# {{ repository_local_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}
+# docker build --no-cache -t {{ repository_local_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ docker_image_name }}_{{ docker_image_tag }} .
+
+# https://www.oracle.com/java/technologies/downloads/

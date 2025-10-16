@@ -1,0 +1,22 @@
+FROM hub.otms.cn/base/java:jdk-17-focal
+# {{ansible_date_time.date}}
+COPY dockerfile.{{ item }} /etc/dockerfile/
+
+ENV M2_VERSION=3.8.9
+ENV M2_HOME=/opt/maven3
+ENV PATH=$PATH:$JAVA_HOME/bin:$M2_HOME/bin
+
+RUN set -xe ; \
+    # maven
+    cd /opt ; \
+    curl -s -m 8 -o maven-bin.tar.gz http://192.168.3.112:81/binaries/java/apache-maven-${M2_VERSION}-bin.tar.gz && \
+    tar xf maven-bin.tar.gz && \
+    ln -nfs /opt/apache-maven-${M2_VERSION} /opt/maven3  && \
+    rm -f maven-bin.tar.gz && \
+    mvn -v
+
+# {{ repository_local_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }}
+# docker build --no-cache -t {{ repository_local_url }}/{{ base_category }}{{ docker_image_name }}:{{ docker_image_tag }} -f dockerfile.{{ docker_image_name }}_{{ docker_image_tag }} .
+
+#https://maven.apache.org/download.cgi
+#https://archive.apache.org/dist/maven/maven-3/3.8.9/binaries/apache-maven-3.8.9-bin.tar.gz
