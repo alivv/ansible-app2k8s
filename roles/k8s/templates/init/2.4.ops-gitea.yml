@@ -17,6 +17,12 @@ spec:
   - name: ssh
     port: 2222
     targetPort: 2222
+  - name: web
+    port: 80
+    targetPort: 3000
+  - name: https
+    port: 443
+    targetPort: 3000
 {% endif %}
 
 {% if env == "dev" %}
@@ -80,6 +86,12 @@ spec:
           value: private
         - name: DISABLE_REGULAR_ORG_CREATION
           value: 'true'
+        # - name: PROTOCOL
+        #   value: 'https'
+        # - name: CERT_FILE
+        #   value: '/etc/ssl/tls.crt'
+        # - name: KEY_FILE
+        #   value: '/etc/ssl/tls.key'
         command:
         - bash
         - -c
@@ -92,7 +104,7 @@ spec:
           sed -i '/DEFAULT_BRANCH/d'  /data/gitea/conf/app.ini 
           sed -i '/\[repository\]/a DEFAULT_BRANCH = master' /data/gitea/conf/app.ini 
           sed -i '/DISABLE_HTTP_GIT/d'  /data/gitea/conf/app.ini 
-          sed -i '/\[repository\]/a DISABLE_HTTP_GIT = true' /data/gitea/conf/app.ini 
+          sed -i '/\[repository\]/a DISABLE_HTTP_GIT = false' /data/gitea/conf/app.ini 
           exec /usr/bin/entrypoint
         resources:
           requests:
@@ -105,6 +117,7 @@ spec:
           httpGet:
             path: /api/healthz
             port: 3000
+            # scheme: HTTPS
           initialDelaySeconds: 20
           periodSeconds: 3
           failureThreshold: 30
@@ -113,6 +126,7 @@ spec:
           httpGet:
             path: /api/healthz
             port: 3000
+            # scheme: HTTPS
           initialDelaySeconds: 20
           timeoutSeconds: 5
           periodSeconds: 10
@@ -122,6 +136,7 @@ spec:
           httpGet:
             path: /api/healthz
             port: 3000
+            # scheme: HTTPS
           initialDelaySeconds: 20
           timeoutSeconds: 5
           periodSeconds: 10
@@ -134,6 +149,9 @@ spec:
         - name: localtime
           mountPath: /etc/localtime
           readOnly: true
+        - name: ssl-certs
+          mountPath: "/etc/ssl"
+          readOnly: true
       volumes:
       - name: localtime
         hostPath:
@@ -141,6 +159,9 @@ spec:
       - name: data
         persistentVolumeClaim:
           claimName: {{ k8s_public_pvc.name }}
+      - name: ssl-certs
+        secret:
+          secretName: https-crt
 
 ---
 #ingress
@@ -152,7 +173,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/limit-connections: '100'
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    # nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "200m"
     # cert-manager.io/cluster-issuer: "letsencrypt"
