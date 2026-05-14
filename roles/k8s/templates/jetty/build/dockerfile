@@ -1,9 +1,11 @@
 {% if docker_build_base_image == "jetty9" %}
 #FROM {{ local_repository_url }}/base/jetty:9.4.50-jdk8u202-focal
-FROM registry.cn-shanghai.aliyuncs.com/elvin/jetty:9.4.50-jdk8u202-focal
+FROM registry.aliyuncs.com/elvin/jetty:9.4.58-jdk8u202-focal
 {% elif docker_build_base_image == "jetty9-17" %}
-#FROM {{ local_repository_url }}/base/jetty:9.4.50-jdk17.0.5
-FROM registry.cn-shanghai.aliyuncs.com/elvin/jetty:9.4.50-jdk17.0.5
+#FROM {{ local_repository_url }}/base/jetty:9.4.58-jdk17
+FROM registry.aliyuncs.com/elvin/jetty:9.4.58-jdk17
+{% elif docker_build_base_image == "jetty12-21" %}
+FROM registry.aliyuncs.com/elvin/jetty:12.0.35-jdk21
 {% endif %}
 
 # {{ansible_date_time.date}}

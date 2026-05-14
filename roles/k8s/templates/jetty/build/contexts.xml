@@ -1,3 +1,19 @@
+{% if docker_build_base_image == "jetty12-21" %}
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "http://www.eclipse.org/jetty/configure.dtd">
+
+<Configure class="org.eclipse.jetty.ee10.webapp.WebAppContext">
+{% for path in docker_build_context.paths %}
+  <Set name="contextPath">{{ path }}</Set>
+{% endfor %}
+{#- With a war file us "war" #}
+  <Set name="war"><SystemProperty name="jetty.base" default="."/>/webapps/{{ item }}.war</Set>
+  <Set name="extractWAR">true</Set>
+  <Set name="defaultsDescriptor"><SystemProperty name="jetty.home" default="."/>/etc/webdefault-ee10.xml</Set>
+  <Set name="extraClasspath"><SystemProperty name="jetty.base" default="."/>/etc/{{ item }}/</Set>
+</Configure>
+
+{% else %}
 <?xml version="1.0"  encoding="ISO-8859-1"?>
 <!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "http://www.eclipse.org/jetty/configure.dtd">
 
@@ -27,3 +43,4 @@
 {% endfor %}
 {% endif %}
 </Configure>
+{% endif %}
